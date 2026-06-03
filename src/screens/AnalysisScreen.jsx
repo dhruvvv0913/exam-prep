@@ -4,18 +4,20 @@ import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconStar, IconCheck, IconChevron, IconClose, IconArrow, IconLayers } from "../components/icons.jsx";
 import { Tag, HeatBar } from "../components/atoms.jsx";
+import { useIsMobile } from "../useIsMobile.js";
 import { Q, MODES, DEFAULT_DONE, DEFAULT_STAR } from "../data/clusters.js";
 
 // ---- toggle ------------------------------------------------------------
 function Toggle({ active, onChange }) {
   const opts = [["5", "5 marker"], ["1", "1 marker"], ["combined", "Combined"]];
+  const isMobile = useIsMobile();
   return (
-    <div style={{ display: "inline-flex", padding: 4, gap: 3, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, boxShadow: C.shadowSm }}>
+    <div style={{ display: "inline-flex", padding: 4, gap: 3, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, boxShadow: C.shadowSm, maxWidth: "100%" }}>
       {opts.map(([k, label]) => {
         const on = k === active;
         return (
           <button key={k} onClick={() => onChange(k)} style={{
-            fontFamily: C.font, fontSize: 14, fontWeight: on ? 600 : 500, padding: "8px 22px",
+            fontFamily: C.font, fontSize: 14, fontWeight: on ? 600 : 500, padding: isMobile ? "8px 14px" : "8px 22px",
             border: "none", borderRadius: 999, cursor: "pointer", whiteSpace: "nowrap",
             color: on ? "#fff" : C.muted, background: on ? C.primary : "transparent",
             boxShadow: on ? "0 4px 12px rgba(63,81,196,0.28)" : "none",
@@ -98,7 +100,7 @@ function SidePanel({ cluster, onClose, starred, onStar }) {
     <React.Fragment>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
       <div style={{
-        position: "absolute", top: 0, right: 0, bottom: 0, width: "min(540px, 60%)", background: "#fbfbfe",
+        position: "absolute", top: 0, right: 0, bottom: 0, width: "min(540px, 94vw)", background: "#fbfbfe",
         boxShadow: "-20px 0 60px rgba(20,22,42,0.22)", zIndex: 41, display: "flex", flexDirection: "column",
         animation: "panelin .3s cubic-bezier(.2,.8,.25,1)",
       }}>
@@ -163,13 +165,14 @@ export default function AnalysisScreen() {
   React.useEffect(() => { setOpen(null); }, [mode]);
 
   const openCluster = open != null ? Q[open] : null;
+  const isMobile = useIsMobile();
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
-      <div style={{ maxWidth: 1040, margin: "0 auto", padding: "34px 32px 60px" }}>
+      <div style={{ maxWidth: 1040, margin: "0 auto", padding: isMobile ? "24px 16px 48px" : "34px 32px 60px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: 22 }}>
           <div>
-            <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 28, color: C.ink, letterSpacing: -0.3 }}>Important questions</div>
+            <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: isMobile ? 23 : 28, color: C.ink, letterSpacing: -0.3 }}>Important questions</div>
             <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Ranked by repetition × number of similar questions, across your 4 uploaded papers.</div>
           </div>
           <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>

@@ -4,6 +4,7 @@ import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconUpload, IconFile, IconCheck, IconArrow, IconPlus, IconSparkle, IconClose } from "../components/icons.jsx";
 import { Tag, PrimaryButton, FloatField } from "../components/atoms.jsx";
+import { useIsMobile } from "../useIsMobile.js";
 
 function FileChip({ name, accent, onRemove }) {
   const col = accent ? C.primary : C.ink2;
@@ -71,19 +72,20 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
   const total = papers.length + handouts.length;
   const add = (setter) => (names) => setter((p) => [...p, ...names]);
   const remove = (setter) => (i) => setter((p) => p.filter((_, j) => j !== i));
+  const isMobile = useIsMobile();
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
       <FloatField />
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 880, margin: "0 auto", padding: "52px 32px 60px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 880, margin: "0 auto", padding: isMobile ? "34px 20px 48px" : "52px 32px 60px", display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 999, background: "#fff", border: `1px solid ${C.line}`, boxShadow: C.shadowSm, marginBottom: 22 }}>
           <IconSparkle s={15} c={C.primary} />
           <span style={{ fontFamily: C.font, fontSize: 13, fontWeight: 500, color: C.ink2 }}>Find the questions that actually repeat</span>
         </div>
-        <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: 46, lineHeight: 1.08, textAlign: "center", color: C.ink, letterSpacing: -1, margin: 0 }}>
+        <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: isMobile ? 32 : 46, lineHeight: 1.08, textAlign: "center", color: C.ink, letterSpacing: -1, margin: 0 }}>
           Upload. Learn.<br />Ace the exam.
         </h1>
-        <p style={{ fontFamily: C.font, fontSize: 17, lineHeight: 1.55, color: C.muted, textAlign: "center", maxWidth: 470, margin: "16px 0 38px", textWrap: "pretty" }}>
+        <p style={{ fontFamily: C.font, fontSize: isMobile ? 15 : 17, lineHeight: 1.55, color: C.muted, textAlign: "center", maxWidth: 470, margin: "16px 0 38px", textWrap: "pretty" }}>
           Drop in your past exam papers and we'll surface the questions that come back year after year — ranked by how often they repeat.
         </p>
 
