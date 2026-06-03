@@ -1,0 +1,67 @@
+// Loading screen: animated document scan + stepped progress, auto-advances.
+// Ported from prototype-app.jsx.
+import React from "react";
+import { C, hexA } from "../theme.js";
+import { IconCheck } from "../components/icons.jsx";
+import { FloatField } from "../components/atoms.jsx";
+
+function ScanDoc() {
+  const card = (extra) => ({ position: "absolute", width: 128, height: 158, borderRadius: 14, background: "#fff", border: `1px solid ${C.line}`, boxShadow: C.shadowMd, ...extra });
+  return (
+    <div style={{ position: "relative", width: 190, height: 184 }}>
+      <div style={card({ left: 16, top: 20, transform: "rotate(-8deg)", opacity: 0.5 })} />
+      <div style={card({ left: 44, top: 14, transform: "rotate(6deg)", opacity: 0.8 })} />
+      <div style={{ ...card({ left: 30, top: 16 }), overflow: "hidden", display: "flex", flexDirection: "column", gap: 9, padding: 18 }}>
+        <div style={{ width: "55%", height: 9, background: C.primary, borderRadius: 5 }} />
+        {[1, 0.9, 1, 0.6].map((w, i) => <div key={i} style={{ width: `${w * 100}%`, height: 7, background: "#e6e8f2", borderRadius: 5 }} />)}
+        <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 3, background: `linear-gradient(90deg, transparent, ${C.primary}, transparent)`, boxShadow: `0 0 14px ${C.primary}`, animation: "scan 2s ease-in-out infinite" }} />
+      </div>
+    </div>);
+}
+
+function StepIcon({ state }) {
+  if (state === "done") return <div style={{ width: 26, height: 26, borderRadius: "50%", background: C.good, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><IconCheck s={14} sw={2.6} /></div>;
+  if (state === "active") return <div className="pyq-spin" style={{ width: 26, height: 26, borderRadius: "50%", border: `3px solid ${hexA(C.primary, 0.22)}`, borderTopColor: C.primary, flex: "0 0 auto" }} />;
+  return <div style={{ width: 26, height: 26, borderRadius: "50%", border: `2px solid #d3d6e6`, flex: "0 0 auto" }} />;
+}
+
+export default function LoadingScreen({ onDone }) {
+  const stepDefs = [
+    { label: "Reading your papers", note: "4 PDFs" },
+    { label: "Extracting questions", note: "86 found" },
+    { label: "Clustering similar questions", note: "grouping…" },
+    { label: "Ranking by importance", note: "" },
+  ];
+  const [active, setActive] = React.useState(0);
+  React.useEffect(() => {
+    const t1 = setInterval(() => setActive((a) => Math.min(a + 1, stepDefs.length)), 820);
+    const done = setTimeout(onDone, 3500);
+    return () => { clearInterval(t1); clearTimeout(done); };
+  }, []);
+
+  return (
+    <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px", overflow: "hidden" }}>
+      <FloatField />
+      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 500, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <ScanDoc />
+        <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 30, color: C.ink, marginTop: 26, letterSpacing: -0.3 }}>Analysing your papers</div>
+        <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 7, textAlign: "center", lineHeight: 1.5 }}>Finding the questions that actually repeat — usually just a few seconds.</div>
+
+        <div style={{ width: "100%", height: 9, borderRadius: 999, background: "#e3e5f1", overflow: "hidden", marginTop: 28 }}>
+          <div style={{ height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${C.primary}, #5b6cdb)`, width: `${Math.min(100, (active / stepDefs.length) * 100 + 8)}%`, transition: "width .6s cubic-bezier(.4,0,.2,1)" }} />
+        </div>
+
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 14, marginTop: 22 }}>
+          {stepDefs.map((s, i) => {
+            const state = i < active ? "done" : i === active ? "active" : "pending";
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, opacity: state === "pending" ? 0.45 : 1, transition: "opacity .3s" }}>
+                <StepIcon state={state} />
+                <span style={{ fontFamily: C.font, fontSize: 15, fontWeight: state === "active" ? 600 : 500, color: C.ink }}>{s.label}</span>
+                {s.note && <span style={{ fontFamily: C.font, fontSize: 12.5, color: state === "active" ? C.primary : C.faint, marginLeft: "auto" }}>{s.note}</span>}
+              </div>);
+          })}
+        </div>
+      </div>
+    </div>);
+}
