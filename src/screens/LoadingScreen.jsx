@@ -1,9 +1,10 @@
-// Loading screen: animated document scan + stepped progress, auto-advances.
-// Ported from prototype-app.jsx.
+// Loading screen: runs the real analysis pipeline and shows live progress
+// through its four stages, then hands the result to the analysis screen.
 import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconCheck } from "../components/icons.jsx";
-import { FloatField } from "../components/atoms.jsx";
+import { FloatField, PrimaryButton } from "../components/atoms.jsx";
+import { analyze } from "../engine/pipeline.js";
 
 function ScanDoc() {
   const card = (extra) => ({ position: "absolute", width: 128, height: 158, borderRadius: 14, background: "#fff", border: `1px solid ${C.line}`, boxShadow: C.shadowMd, ...extra });
@@ -25,18 +26,48 @@ function StepIcon({ state }) {
   return <div style={{ width: 26, height: 26, borderRadius: "50%", border: `2px solid #d3d6e6`, flex: "0 0 auto" }} />;
 }
 
-export default function LoadingScreen({ onDone }) {
+// Map a pipeline progress event to a step index + short note.
+const STAGE_STEP = { reading: 0, ocr: 0, extracted: 1, clustering: 2, ranking: 3 };
+
+export default function LoadingScreen({ papers, onDone, onError }) {
   const stepDefs = [
-    { label: "Reading your papers", note: "4 PDFs" },
-    { label: "Extracting questions", note: "86 found" },
-    { label: "Clustering similar questions", note: "grouping…" },
-    { label: "Ranking by importance", note: "" },
+    { label: "Reading your papers" },
+    { label: "Extracting questions" },
+    { label: "Grouping similar questions" },
+    { label: "Ranking by importance" },
   ];
   const [active, setActive] = React.useState(0);
+  const [notes, setNotes] = React.useState(["", "", "", ""]);
+  const [error, setError] = React.useState(null);
+
   React.useEffect(() => {
-    const t1 = setInterval(() => setActive((a) => Math.min(a + 1, stepDefs.length)), 820);
-    const done = setTimeout(onDone, 3500);
-    return () => { clearInterval(t1); clearTimeout(done); };
+    let cancelled = false;
+    const setNote = (i, text) => setNotes((n) => { const c = n.slice(); c[i] = text; return c; });
+
+    analyze(papers, {
+      onProgress: (p) => {
+        if (cancelled) return;
+        const step = STAGE_STEP[p.stage] ?? 0;
+        setActive(step);
+        if (p.stage === "reading") setNote(0, `${p.index + 1} of ${p.total}`);
+        else if (p.stage === "ocr") setNote(0, `scanning page ${p.done}/${p.total}…`);
+        else if (p.stage === "extracted") setNote(1, `${p.questions} found`);
+        else if (p.stage === "clustering") setNote(2, "grouping…");
+      },
+    })
+      .then((result) => {
+        if (cancelled) return;
+        setActive(stepDefs.length); // all done
+        setTimeout(() => !cancelled && onDone(result), 400);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setError(err?.message || "Something went wrong while analysing your papers.");
+      });
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -45,23 +76,34 @@ export default function LoadingScreen({ onDone }) {
       <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 500, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <ScanDoc />
         <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 30, color: C.ink, marginTop: 26, letterSpacing: -0.3 }}>Analysing your papers</div>
-        <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 7, textAlign: "center", lineHeight: 1.5 }}>Finding the questions that actually repeat — usually just a few seconds.</div>
-
-        <div style={{ width: "100%", height: 9, borderRadius: 999, background: "#e3e5f1", overflow: "hidden", marginTop: 28 }}>
-          <div style={{ height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${C.primary}, #5b6cdb)`, width: `${Math.min(100, (active / stepDefs.length) * 100 + 8)}%`, transition: "width .6s cubic-bezier(.4,0,.2,1)" }} />
+        <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 7, textAlign: "center", lineHeight: 1.5 }}>
+          Finding the questions that actually repeat. Scanned PDFs take a little longer.
         </div>
 
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 14, marginTop: 22 }}>
-          {stepDefs.map((s, i) => {
-            const state = i < active ? "done" : i === active ? "active" : "pending";
-            return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, opacity: state === "pending" ? 0.45 : 1, transition: "opacity .3s" }}>
-                <StepIcon state={state} />
-                <span style={{ fontFamily: C.font, fontSize: 15, fontWeight: state === "active" ? 600 : 500, color: C.ink }}>{s.label}</span>
-                {s.note && <span style={{ fontFamily: C.font, fontSize: 12.5, color: state === "active" ? C.primary : C.faint, marginLeft: "auto" }}>{s.note}</span>}
-              </div>);
-          })}
-        </div>
+        {error ? (
+          <div style={{ marginTop: 28, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+            <div style={{ fontFamily: C.font, fontSize: 14.5, color: "#c0392b", textAlign: "center", lineHeight: 1.5 }}>{error}</div>
+            <PrimaryButton onClick={onError}>Back to upload</PrimaryButton>
+          </div>
+        ) : (
+          <React.Fragment>
+            <div style={{ width: "100%", height: 9, borderRadius: 999, background: "#e3e5f1", overflow: "hidden", marginTop: 28 }}>
+              <div style={{ height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${C.primary}, #5b6cdb)`, width: `${Math.min(100, (active / stepDefs.length) * 100 + 8)}%`, transition: "width .6s cubic-bezier(.4,0,.2,1)" }} />
+            </div>
+
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 14, marginTop: 22 }}>
+              {stepDefs.map((s, i) => {
+                const state = i < active ? "done" : i === active ? "active" : "pending";
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, opacity: state === "pending" ? 0.45 : 1, transition: "opacity .3s" }}>
+                    <StepIcon state={state} />
+                    <span style={{ fontFamily: C.font, fontSize: 15, fontWeight: state === "active" ? 600 : 500, color: C.ink }}>{s.label}</span>
+                    {notes[i] && <span style={{ fontFamily: C.font, fontSize: 12.5, color: state === "active" ? C.primary : C.faint, marginLeft: "auto" }}>{notes[i]}</span>}
+                  </div>);
+              })}
+            </div>
+          </React.Fragment>
+        )}
       </div>
     </div>);
 }

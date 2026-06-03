@@ -17,22 +17,24 @@ function FileChip({ name, accent, onRemove }) {
     </div>);
 }
 
-function UploadZone({ required, title, files, onAdd, onRemove, sampleLabel, samples }) {
+function UploadZone({ required, title, files, onAdd, onRemove }) {
   const inputRef = React.useRef(null);
   const [drag, setDrag] = React.useState(false);
   const has = files.length > 0;
   const accent = required;
   const border = drag ? C.primary : (has ? hexA(accent ? C.primary : C.good, 0.45) : "#cfd3e6");
 
+  // Keep the actual File objects — the pipeline reads their bytes for analysis.
+  const onlyPdfs = (list) => Array.from(list || []).filter((f) => /\.pdf$/i.test(f.name));
   const pick = (e) => {
-    const names = Array.from(e.target.files || []).map((f) => f.name);
-    if (names.length) onAdd(names);
+    const fs = onlyPdfs(e.target.files);
+    if (fs.length) onAdd(fs);
     e.target.value = "";
   };
   const drop = (e) => {
     e.preventDefault(); setDrag(false);
-    const names = Array.from(e.dataTransfer.files || []).map((f) => f.name);
-    if (names.length) onAdd(names);
+    const fs = onlyPdfs(e.dataTransfer.files);
+    if (fs.length) onAdd(fs);
   };
 
   return (
@@ -52,7 +54,7 @@ function UploadZone({ required, title, files, onAdd, onRemove, sampleLabel, samp
 
       {has
         ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", width: "100%" }}>
-            {files.map((n, i) => <FileChip key={n + i} name={n} accent={accent} onRemove={() => onRemove(i)} />)}
+            {files.map((f, i) => <FileChip key={f.name + i} name={f.name} accent={accent} onRemove={() => onRemove(i)} />)}
           </div>
         : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted }}>Drag &amp; drop your PDFs here</div>}
 
@@ -62,7 +64,6 @@ function UploadZone({ required, title, files, onAdd, onRemove, sampleLabel, samp
           color: accent ? C.primary : C.ink2, background: "#fff", border: `1px solid ${accent ? hexA(C.primary, 0.4) : C.line}`,
           display: "inline-flex", alignItems: "center", gap: 6,
         }}>{has ? <React.Fragment><IconPlus s={14} c={accent ? C.primary : C.ink2} /> Add more</React.Fragment> : "Browse files"}</button>
-        {!has && <button onClick={() => onAdd(samples)} style={{ fontFamily: C.font, fontSize: 13, fontWeight: 500, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>{sampleLabel}</button>}
       </div>
     </div>);
 }
@@ -90,10 +91,8 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
         </p>
 
         <div style={{ display: "flex", gap: 20, width: "100%", marginBottom: 30, alignItems: "stretch", flexWrap: "wrap" }}>
-          <UploadZone required title="Previous year papers" files={papers} onAdd={add(setPapers)} onRemove={remove(setPapers)}
-            sampleLabel="use sample papers" samples={["2023-physics.pdf", "2022-physics.pdf", "2021-physics.pdf", "2019-physics.pdf"]} />
-          <UploadZone title="Course handouts" files={handouts} onAdd={add(setHandouts)} onRemove={remove(setHandouts)}
-            sampleLabel="use sample handout" samples={["unit-handbook.pdf"]} />
+          <UploadZone required title="Previous year papers" files={papers} onAdd={add(setPapers)} onRemove={remove(setPapers)} />
+          <UploadZone title="Course handouts" files={handouts} onAdd={add(setHandouts)} onRemove={remove(setHandouts)} />
         </div>
 
         <PrimaryButton size="lg" disabled={!ready} glow={ready} onClick={onStart}>

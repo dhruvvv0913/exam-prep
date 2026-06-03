@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tesseract.js artifact from running Node OCR scripts
+eng.traineddata
