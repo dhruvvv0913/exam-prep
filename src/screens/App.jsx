@@ -23,10 +23,11 @@ function TopBar({ screen, summary, onHome, onReupload }) {
               {!isMobile && summary && <span style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted }}>{summary.paperCount} papers · {summary.questionCount} questions</span>}
               <GhostButton onClick={onReupload}><IconUpload s={16} c={C.ink2} /> Re-upload</GhostButton>
             </React.Fragment>
-          : <nav style={{ display: "flex", alignItems: "center", gap: isMobile ? 14 : 26, fontFamily: C.font, fontSize: 14, color: C.muted }}>
-              {!isMobile && <React.Fragment><span>How it works</span><span>Subjects</span></React.Fragment>}
-              <span style={{ padding: "8px 18px", border: `1px solid ${C.line}`, borderRadius: 10, color: C.ink2, fontWeight: 500 }}>Sign in</span>
-            </nav>}
+          : !isMobile && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 13px", border: `1px solid ${C.line}`, borderRadius: 999, background: "#fff", fontFamily: C.font, fontSize: 12.5, fontWeight: 500, color: C.muted }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.good }} /> Free · runs in your browser
+              </span>
+            )}
       </div>
     </div>);
 }
@@ -42,16 +43,24 @@ export default function App() {
   const [papers, setPapers] = React.useState([]);   // File objects (not persisted)
   const [handouts, setHandouts] = React.useState([]);
   const [result, setResult] = React.useState(saved.result || null); // analysis output
+  // Star/done progress survives reloads (keyed by group id).
+  const [done, setDone] = React.useState(() => new Set(saved.done || []));
+  const [starred, setStarred] = React.useState(() => new Set(saved.starred || []));
 
-  // Persist only the analysis result + current screen (File objects can't be).
+  // Persist the analysis result + progress + screen (File objects can't be).
   React.useEffect(() => {
-    try { localStorage.setItem(LS, JSON.stringify({ screen, result })); } catch (e) {}
-  }, [screen, result]);
+    try { localStorage.setItem(LS, JSON.stringify({ screen, result, done: [...done], starred: [...starred] })); } catch (e) {}
+  }, [screen, result, done, starred]);
+
+  const toggleIn = (setter) => (id) => setter((prev) => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
 
   const home = () => setScreen("landing");
   const reupload = () => { setPapers([]); setHandouts([]); setScreen("landing"); };
   const start = () => setScreen("loading");
-  const onDone = (r) => { setResult(r); setScreen("analysis"); };
+  // A fresh analysis means new groups — reset progress.
+  const onDone = (r) => { setResult(r); setDone(new Set()); setStarred(new Set()); setScreen("analysis"); };
   const onGroupsChange = (groups) => setResult((r) => ({ ...r, groups }));
 
   return (
@@ -60,7 +69,8 @@ export default function App() {
       {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} />}
       {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} onDone={onDone} onError={reupload} />}
       {screen === "analysis" && (result
-        ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} />
+        ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange}
+            done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
         : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} />)}
     </div>);
 }

@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { env } from "@xenova/transformers";
 import { embed, clusterVectors } from "../src/engine/cluster.js";
+import { topicLabel } from "../src/engine/rank.js";
 
 env.localModelPath = "./public/models/";
 
@@ -35,7 +36,7 @@ if (detail && thresholds.length === 1) {
     .filter((x) => x.papers >= 2).sort((a, b) => b.c.items.length - a.c.items.length);
   console.log(`\n=== groups @ ${thresholds[0]} (${withN.length} multi-doc) ===`);
   for (const { c } of withN) {
-    console.log(`\n• [${c.items.length}q]`);
+    console.log(`\n• "${topicLabel(c.items)}" [${c.items.length}q]`);
     for (const it of c.items) console.log(`    (${it.paperId}) ${it.text.slice(0, 72)}`);
   }
   process.exit(0);

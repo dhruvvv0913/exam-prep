@@ -86,11 +86,16 @@ const cleanText = (s) =>
   s
     // Drop any model answer in solution PDFs: keep only the question stem.
     .replace(/\b(Ans(wer)?|Solution|Note)\b\s*[-:.].*$/is, " ")
+    // OCR noise from scans:
+    .replace(/Page\s*\d+\s*\/\s*\d+/gi, " ") // "Page 5 / 7" footers
+    .replace(/K[\w-]{0,4}D[uU][\s\S]*$/g, " ") // "KIIT-DU/2025/..." exam footer to end
     .replace(MARKS_INLINE, " ")
-    .replace(/\b\d{1,2}\s*\]/g, " ") // orphan marks from OCR, e.g. "15]" "5]"
+    .replace(/\[\s*\d{1,3}\s*[\])]?/g, " ") // bracketed mark artifacts: "[5]" "[51" "[10"
+    .replace(/\b\d{1,2}\s*[\])]/g, " ") // orphan marks: "15]" "5)" "5]"
     .replace(/[|*]{2,}|\*k[ok]+/gi, " ") // OCR'd dividers / "*****" -> "*kokokk"
+    .replace(/[«»©®~^_|]+/g, " ") // stray OCR symbols
+    .replace(/\[\s*[A-Za-z&]{1,3}\s*\]/g, " ") // junk like "[EB]" "[&]"
     .replace(/\s+([.,?])/g, "$1") // tidy space-before-punctuation
-    .replace(/[|]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -134,6 +139,16 @@ export function splitQuestions(text) {
     m = Q_PART.exec(l);
     if (m && curNum) {
       const part = m[1].toLowerCase();
+      const isRoman = part === "i" || part === "v" || part === "x";
+      const sequential = lastPart && part.charCodeAt(0) === lastPart.charCodeAt(0) + 1;
+      // (i)/(v)/(x) that don't continue the a,b,c… sequence are roman SUB-parts
+      // of the current question — keep them attached instead of making a tiny
+      // stub question. (Multi-letter romans like (ii)/(iii) already fall through
+      // to the continuation case below.)
+      if (isRoman && !sequential && cur) {
+        cur.text += ` (${part}) ` + (m[2] || "");
+        continue;
+      }
       // A part letter that doesn't advance (e.g. another "(a)" after "(b)")
       // means the question NUMBER was dropped by the PDF — start a new one.
       if (lastPart && part <= lastPart) curNum = String(Number(curNum) + 1);

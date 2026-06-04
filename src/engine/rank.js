@@ -14,16 +14,24 @@ const STOP = new Set(
    "brief major role about can does do how various their there here also with respect").split(" ")
 );
 
-// Short human label from the most frequent meaningful words across the items.
+// Short human label for a group. Weights distinctive terms — acronyms (WTO,
+// SDG, HDI) and proper nouns (Myrdal, Ricardo, Adam) — above generic content
+// words, so labels name the actual topic instead of filler like "Development".
 export function topicLabel(items) {
-  const freq = new Map();
+  const score = new Map(); // lowercase key -> total weight
+  const disp = new Map(); // lowercase key -> { d: display form, w: best single weight }
+  const consider = (token, weight, display) => {
+    const k = token.toLowerCase();
+    if (STOP.has(k) || k.length < 2) return;
+    score.set(k, (score.get(k) || 0) + weight);
+    if (!disp.has(k) || weight > disp.get(k).w) disp.set(k, { d: display, w: weight });
+  };
   for (const it of items) {
-    for (const w of (it.text.toLowerCase().match(/[a-z]{4,}/g) || [])) {
-      if (STOP.has(w)) continue;
-      freq.set(w, (freq.get(w) || 0) + 1);
-    }
+    for (const a of (it.text.match(/\b[A-Z]{2,5}\b/g) || [])) consider(a, 3, a); // acronyms
+    for (const w of (it.text.match(/\b[A-Z][a-z]{3,}\b/g) || [])) consider(w, 2, w); // proper nouns
+    for (const w of (it.text.toLowerCase().match(/[a-z]{4,}/g) || [])) consider(w, 1, w[0].toUpperCase() + w.slice(1));
   }
-  const top = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([w]) => w[0].toUpperCase() + w.slice(1));
+  const top = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => disp.get(k).d);
   return top.join(" · ") || "General";
 }
 

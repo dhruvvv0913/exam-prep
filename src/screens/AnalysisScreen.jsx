@@ -29,6 +29,7 @@ function StarBtn({ on, onClick }) {
 // ---- one group card: topic header + collapsible question list -----------
 function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone }) {
   const unique = cluster.unique;
+  const isMobile = useIsMobile();
   return (
     <div style={{ background: "#fff", borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadowSm, overflow: "hidden" }}>
       {/* header (click anywhere to collapse/expand) */}
@@ -65,7 +66,7 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
 
       {/* question list */}
       {!collapsed && (
-        <div style={{ padding: "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
           {cluster.questions.map((q, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
               <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.year ?? "?"}</span>
@@ -79,11 +80,9 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
 }
 
 // ---- screen ------------------------------------------------------------
-export default function AnalysisScreen({ data, onGroupsChange }) {
+export default function AnalysisScreen({ data, onGroupsChange, done, starred, onToggleDone, onToggleStar }) {
   const paperCount = data.paperCount;
   const [editing, setEditing] = React.useState(false);
-  const [doneSet, setDoneSet] = React.useState(() => new Set());
-  const [starSet, setStarSet] = React.useState(() => new Set());
   // collapsed by id; default = the "asked once" groups start collapsed.
   const [collapsed, setCollapsed] = React.useState(() => new Set(summarize(data.groups).unique.map((c) => c.id)));
 
@@ -91,18 +90,15 @@ export default function AnalysisScreen({ data, onGroupsChange }) {
   const maxMarks = Math.max(1, ...ranked.map((c) => c.totalMarks));
   const isMobile = useIsMobile();
 
-  const toggle = (setter) => (id) => setter((prev) => {
+  const toggleCollapse = (id) => setCollapsed((prev) => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
-  const toggleDone = toggle(setDoneSet);
-  const toggleStar = toggle(setStarSet);
-  const toggleCollapse = toggle(setCollapsed);
 
   const card = (c, rank) => (
     <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
       collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
-      starred={starSet.has(c.id)} done={doneSet.has(c.id)}
-      onStar={() => toggleStar(c.id)} onDone={() => toggleDone(c.id)} />
+      starred={starred.has(c.id)} done={done.has(c.id)}
+      onStar={() => onToggleStar(c.id)} onDone={() => onToggleDone(c.id)} />
   );
 
   // Review/edit mode replaces the ranked view (all hooks above run regardless).
@@ -125,8 +121,8 @@ export default function AnalysisScreen({ data, onGroupsChange }) {
             <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across your {paperCount} uploaded {paperCount === 1 ? "paper" : "papers"}.</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
-            <Tag tone="good"><IconCheck s={12} c={C.good} sw={2.6} /> {doneSet.size} done</Tag>
-            <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starSet.size} starred</Tag>
+            <Tag tone="good"><IconCheck s={12} c={C.good} sw={2.6} /> {done.size} done</Tag>
+            <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
             <GhostButton onClick={() => setEditing(true)}><IconLayers s={15} c={C.ink2} /> Edit groups</GhostButton>
           </div>
         </div>
