@@ -93,8 +93,11 @@ const cleanText = (s) =>
     .replace(/\[\s*\d{1,3}\s*[\])]?/g, " ") // bracketed mark artifacts: "[5]" "[51" "[10"
     .replace(/\b\d{1,2}\s*[\])]/g, " ") // orphan marks: "15]" "5)" "5]"
     .replace(/[|*]{2,}|\*k[ok]+/gi, " ") // OCR'd dividers / "*****" -> "*kokokk"
-    .replace(/[«»©®~^_|]+/g, " ") // stray OCR symbols
     .replace(/\[\s*[A-Za-z&]{1,3}\s*\]/g, " ") // junk like "[EB]" "[&]"
+    .replace(/[\[\]{}]+/g, " ") // stray brackets/braces e.g. "[&)]"
+    .replace(/[«»©®~^_|@]+/g, " ") // stray OCR symbols
+    .replace(/(^|\s)[&)(]+(?=\s|$)/g, " ") // orphan "&" ")" "(" tokens
+    .replace(/\(\s*[A-Za-z]{0,2}\s*$/g, " ") // trailing partial "(DO" "(@" "("
     .replace(/\s+([.,?])/g, "$1") // tidy space-before-punctuation
     .replace(/\s+/g, " ")
     .trim();

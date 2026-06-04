@@ -66,6 +66,8 @@ export function summarize(groups) {
       const rep = representative(g.items);
       const marksOf = (it) => (typeof it.marks === "number" ? it.marks : 5);
       const totalMarks = g.items.reduce((s, it) => s + marksOf(it), 0);
+      // newest year first; unknown years sink to the bottom
+      const ordered = [...g.items].sort((a, b) => (b.year ?? -1) - (a.year ?? -1));
       return {
         id: g.id,
         topic: g.topic,
@@ -73,8 +75,8 @@ export function summarize(groups) {
         q: rep.text, // representative (kept for back-compat / Node scripts)
         appears: papers.size,
         variants: g.items.length,
-        // full list of questions in the group, for the card layout
-        questions: g.items.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
+        // full list of questions in the group (year-sorted), for the card layout
+        questions: ordered.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
         similars: g.items
           .filter((it) => it !== rep)
           .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),

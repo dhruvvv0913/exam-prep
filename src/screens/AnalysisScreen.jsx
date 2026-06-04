@@ -102,6 +102,16 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
   const maxMarks = Math.max(1, ...ranked.map((c) => c.totalMarks));
   const isMobile = useIsMobile();
 
+  // Most common detected subject across the uploaded papers (for the header).
+  const subject = React.useMemo(() => {
+    const counts = new Map();
+    for (const p of data.papers || []) {
+      const s = (p.subject || "").trim();
+      if (s) counts.set(s, (counts.get(s) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  }, [data.papers]);
+
   const toggleCollapse = (id) => setCollapsed((prev) => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
@@ -148,6 +158,7 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
       <div style={{ maxWidth: 1040, margin: "0 auto", padding: isMobile ? "24px 16px 48px" : "34px 32px 60px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: 18 }}>
           <div>
+            {subject && <div style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, letterSpacing: 0.3, textTransform: "uppercase", color: C.primary, marginBottom: 4 }}>{subject}</div>}
             <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: isMobile ? 23 : 28, color: C.ink, letterSpacing: -0.3 }}>Important questions</div>
             <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across your {paperCount} uploaded {paperCount === 1 ? "paper" : "papers"}.</div>
           </div>
