@@ -25,15 +25,16 @@ function UploadZone({ required, title, files, onAdd, onRemove }) {
   const border = drag ? C.primary : (has ? hexA(accent ? C.primary : C.good, 0.45) : "#cfd3e6");
 
   // Keep the actual File objects — the pipeline reads their bytes for analysis.
-  const onlyPdfs = (list) => Array.from(list || []).filter((f) => /\.pdf$/i.test(f.name));
+  // Accept PDFs and image screenshots (png/jpg/webp); images are OCR'd.
+  const accepted = (list) => Array.from(list || []).filter((f) => /\.(pdf|png|jpe?g|webp)$/i.test(f.name));
   const pick = (e) => {
-    const fs = onlyPdfs(e.target.files);
+    const fs = accepted(e.target.files);
     if (fs.length) onAdd(fs);
     e.target.value = "";
   };
   const drop = (e) => {
     e.preventDefault(); setDrag(false);
-    const fs = onlyPdfs(e.dataTransfer.files);
+    const fs = accepted(e.dataTransfer.files);
     if (fs.length) onAdd(fs);
   };
 
@@ -45,7 +46,7 @@ function UploadZone({ required, title, files, onAdd, onRemove }) {
         alignItems: "center", textAlign: "center", gap: 13, transition: "border-color .15s, background .15s",
         boxShadow: has ? C.shadowMd : C.shadowSm,
       }}>
-      <input ref={inputRef} type="file" accept=".pdf" multiple onChange={pick} style={{ display: "none" }} />
+      <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,image/*" multiple onChange={pick} style={{ display: "none" }} />
       <div style={{ width: 52, height: 52, borderRadius: 14, background: accent ? C.primarySoft : "#f1f2f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <IconUpload s={26} c={accent ? C.primary : C.ink2} />
       </div>
@@ -56,7 +57,7 @@ function UploadZone({ required, title, files, onAdd, onRemove }) {
         ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", width: "100%" }}>
             {files.map((f, i) => <FileChip key={f.name + i} name={f.name} accent={accent} onRemove={() => onRemove(i)} />)}
           </div>
-        : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted }}>Drag &amp; drop your PDFs here</div>}
+        : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted }}>Drag &amp; drop PDFs or screenshots here</div>}
 
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 2 }}>
         <button onClick={() => inputRef.current && inputRef.current.click()} style={{

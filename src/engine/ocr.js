@@ -4,16 +4,29 @@
 // is empty or garbled — see textQuality.assessText.
 import { createWorker } from "tesseract.js";
 
+// Self-hosted worker/core/lang (public/tesseract) so OCR works on networks
+// that block CDNs — same reason as the model in cluster.js.
+const WORKER_OPTS = {
+  workerPath: "/tesseract/worker.min.js",
+  corePath: "/tesseract",
+  langPath: "/tesseract/lang",
+};
+
+// OCR a single uploaded image (e.g. a screenshot of a question paper).
+export async function ocrImage(image) {
+  const worker = await createWorker("eng", 1, WORKER_OPTS);
+  try {
+    const { data } = await worker.recognize(image);
+    return data.text;
+  } finally {
+    await worker.terminate();
+  }
+}
+
 // OCR every page of an already-loaded pdfjs document.
 // `onProgress(done, total)` is optional, for the loading UI.
 export async function ocrDocument(doc, { scale = 2, onProgress } = {}) {
-  // Self-hosted worker/core/lang (public/tesseract) so OCR works on networks
-  // that block CDNs — same reason as the model in cluster.js.
-  const worker = await createWorker("eng", 1, {
-    workerPath: "/tesseract/worker.min.js",
-    corePath: "/tesseract",
-    langPath: "/tesseract/lang",
-  });
+  const worker = await createWorker("eng", 1, WORKER_OPTS);
   try {
     let text = "";
     for (let p = 1; p <= doc.numPages; p++) {

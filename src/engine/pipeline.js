@@ -3,6 +3,7 @@
 // can show what's happening. Stages: reading, ocr, extracted, clustering,
 // ranking.
 import { extractText } from "./extractText.js";
+import { ocrImage } from "./ocr.js";
 import { parsePaper } from "./parsePaper.js";
 import { clusterQuestions } from "./cluster.js";
 import { groupsFromClusters } from "./rank.js";
@@ -15,13 +16,21 @@ export async function analyze(files, { onProgress } = {}) {
     const file = files[i];
     onProgress?.({ stage: "reading", paper: file.name, index: i, total: files.length });
 
+    const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
     let text, method;
     try {
-      const buf = new Uint8Array(await file.arrayBuffer());
-      ({ text, method } = await extractText(buf, {
-        onOcrProgress: (done, total) =>
-          onProgress?.({ stage: "ocr", paper: file.name, done, total }),
-      }));
+      if (isPdf) {
+        const buf = new Uint8Array(await file.arrayBuffer());
+        ({ text, method } = await extractText(buf, {
+          onOcrProgress: (done, total) =>
+            onProgress?.({ stage: "ocr", paper: file.name, done, total }),
+        }));
+      } else {
+        // Image upload (screenshot) — OCR it directly.
+        onProgress?.({ stage: "ocr", paper: file.name, done: 0, total: 1 });
+        text = await ocrImage(file);
+        method = "ocr-image";
+      }
     } catch (e) {
       throw new Error(`Reading "${file.name}" failed: ${e.message}`);
     }
