@@ -1,80 +1,132 @@
-// Landing screen: animated hero + two interactive upload zones (required past
-// papers, optional handouts). Ported from prototype-app.jsx.
+// Landing screen: animated hero + upload. "Previous year papers" supports
+// multi-page papers — each uploaded file starts its own paper, and you can add
+// more pages to a paper or merge papers together (so a paper split across
+// several screenshots counts as ONE exam). Handouts stay a simple file list.
 import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconUpload, IconFile, IconCheck, IconArrow, IconPlus, IconSparkle, IconClose } from "../components/icons.jsx";
 import { Tag, PrimaryButton, FloatField } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 
+const ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,image/*";
+const acceptedFiles = (list) => Array.from(list || []).filter((f) => /\.(pdf|png|jpe?g|webp)$/i.test(f.name));
+const newId = () => "p" + Math.random().toString(36).slice(2, 9);
+
 function FileChip({ name, accent, onRemove }) {
   const col = accent ? C.primary : C.ink2;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px 7px 12px", borderRadius: 10, background: accent ? C.primarySoft : "#f1f2f8", border: `1px solid ${accent ? hexA(C.primary, 0.2) : C.line}`, maxWidth: "100%" }}>
-      <IconFile s={15} c={col} />
-      <span style={{ fontFamily: C.font, fontSize: 13, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>{name}</span>
-      <IconCheck s={13} c={accent ? C.primary : C.good} sw={2.4} />
-      <button onClick={(e) => { e.stopPropagation(); onRemove(); }} style={{ background: "none", border: "none", padding: 2, cursor: "pointer", display: "flex", marginLeft: 2 }}><IconClose s={14} c={C.faint} /></button>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 9px 6px 11px", borderRadius: 9, background: accent ? C.primarySoft : "#f1f2f8", border: `1px solid ${accent ? hexA(C.primary, 0.2) : C.line}`, maxWidth: "100%" }}>
+      <IconFile s={14} c={col} />
+      <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>{name}</span>
+      <IconCheck s={12} c={accent ? C.primary : C.good} sw={2.4} />
+      <button onClick={(e) => { e.stopPropagation(); onRemove(); }} style={{ background: "none", border: "none", padding: 2, cursor: "pointer", display: "flex" }}><IconClose s={13} c={C.faint} /></button>
     </div>);
 }
 
-function UploadZone({ required, title, files, onAdd, onRemove }) {
+// One paper = an ordered set of page files, with its own "add page" input.
+function PaperCard({ index, paper, others, onAddPages, onRemovePage, onRemovePaper, onMerge }) {
+  const inputRef = React.useRef(null);
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${hexA(C.primary, 0.25)}`, borderRadius: 12, padding: 12, textAlign: "left" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
+        <span style={{ fontFamily: C.font, fontWeight: 600, fontSize: 13.5, color: C.ink }}>Paper {index + 1}</span>
+        {paper.pages.length > 1 && <Tag tone="primary">{paper.pages.length} pages</Tag>}
+        <div style={{ flex: 1 }} />
+        {others.length > 0 &&
+          <select value="" onChange={(e) => e.target.value && onMerge(paper.id, e.target.value)}
+            title="Combine this paper's pages into another paper"
+            style={{ fontFamily: C.font, fontSize: 12, color: C.ink2, padding: "4px 6px", borderRadius: 7, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer" }}>
+            <option value="">Merge into…</option>
+            {others.map((o) => <option key={o.id} value={o.id}>Paper {o.index + 1}</option>)}
+          </select>}
+        <button onClick={() => onRemovePaper(paper.id)} title="Remove paper" style={{ background: "none", border: "none", padding: 3, cursor: "pointer", display: "flex" }}><IconClose s={15} c={C.faint} /></button>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, alignItems: "center" }}>
+        {paper.pages.map((f, i) => <FileChip key={f.name + i} name={f.name} accent onRemove={() => onRemovePage(paper.id, i)} />)}
+        <input ref={inputRef} type="file" accept={ACCEPT} multiple style={{ display: "none" }}
+          onChange={(e) => { const fs = acceptedFiles(e.target.files); if (fs.length) onAddPages(paper.id, fs); e.target.value = ""; }} />
+        <button onClick={() => inputRef.current?.click()} style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: C.primary, background: C.primarySoft, border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <IconPlus s={13} c={C.primary} /> page
+        </button>
+      </div>
+    </div>);
+}
+
+// Required zone: a list of papers (each with one or more pages).
+function PapersZone({ papers, setPapers }) {
   const inputRef = React.useRef(null);
   const [drag, setDrag] = React.useState(false);
-  const has = files.length > 0;
-  const accent = required;
-  const border = drag ? C.primary : (has ? hexA(accent ? C.primary : C.good, 0.45) : "#cfd3e6");
+  const has = papers.length > 0;
 
-  // Keep the actual File objects — the pipeline reads their bytes for analysis.
-  // Accept PDFs and image screenshots (png/jpg/webp); images are OCR'd.
-  const accepted = (list) => Array.from(list || []).filter((f) => /\.(pdf|png|jpe?g|webp)$/i.test(f.name));
-  const pick = (e) => {
-    const fs = accepted(e.target.files);
-    if (fs.length) onAdd(fs);
-    e.target.value = "";
-  };
-  const drop = (e) => {
-    e.preventDefault(); setDrag(false);
-    const fs = accepted(e.dataTransfer.files);
-    if (fs.length) onAdd(fs);
-  };
+  const addNewPapers = (files) => setPapers((p) => [...p, ...files.map((f) => ({ id: newId(), pages: [f] }))]);
+  const addPagesTo = (id, files) => setPapers((p) => p.map((pp) => (pp.id === id ? { ...pp, pages: [...pp.pages, ...files] } : pp)));
+  const removePage = (id, idx) => setPapers((p) => p.map((pp) => (pp.id === id ? { ...pp, pages: pp.pages.filter((_, j) => j !== idx) } : pp)).filter((pp) => pp.pages.length > 0));
+  const removePaper = (id) => setPapers((p) => p.filter((pp) => pp.id !== id));
+  const mergePaper = (srcId, targetId) => setPapers((p) => {
+    const src = p.find((x) => x.id === srcId);
+    if (!src || srcId === targetId) return p;
+    return p.map((x) => (x.id === targetId ? { ...x, pages: [...x.pages, ...src.pages] } : x)).filter((x) => x.id !== srcId);
+  });
+
+  const pick = (e) => { const fs = acceptedFiles(e.target.files); if (fs.length) addNewPapers(fs); e.target.value = ""; };
+  const drop = (e) => { e.preventDefault(); setDrag(false); const fs = acceptedFiles(e.dataTransfer.files); if (fs.length) addNewPapers(fs); };
 
   return (
     <div onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={drop}
-      style={{
-        flex: 1, background: drag ? hexA(C.primary, 0.05) : "#fff", borderRadius: 18,
-        border: `2px dashed ${border}`, padding: 24, display: "flex", flexDirection: "column",
-        alignItems: "center", textAlign: "center", gap: 13, transition: "border-color .15s, background .15s",
-        boxShadow: has ? C.shadowMd : C.shadowSm,
-      }}>
-      <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,image/*" multiple onChange={pick} style={{ display: "none" }} />
-      <div style={{ width: 52, height: 52, borderRadius: 14, background: accent ? C.primarySoft : "#f1f2f8", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <IconUpload s={26} c={accent ? C.primary : C.ink2} />
-      </div>
-      <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>{title}</div>
-      <Tag tone={accent ? "primary" : "muted"}>{accent ? "★ required to start" : "optional · improves results"}</Tag>
+      style={{ flex: 1, minWidth: 280, background: drag ? hexA(C.primary, 0.05) : "#fff", borderRadius: 18, border: `2px dashed ${drag ? C.primary : (has ? hexA(C.primary, 0.45) : "#cfd3e6")}`, padding: 22, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12, boxShadow: has ? C.shadowMd : C.shadowSm }}>
+      <input ref={inputRef} type="file" accept={ACCEPT} multiple onChange={pick} style={{ display: "none" }} />
+      <div style={{ width: 50, height: 50, borderRadius: 14, background: C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}><IconUpload s={25} c={C.primary} /></div>
+      <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Previous year papers</div>
+      <Tag tone="primary">★ required to start</Tag>
 
       {has
+        ? <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
+            {papers.map((paper, i) => (
+              <PaperCard key={paper.id} index={i} paper={paper}
+                others={papers.map((o, j) => ({ id: o.id, index: j })).filter((o) => o.id !== paper.id)}
+                onAddPages={addPagesTo} onRemovePage={removePage} onRemovePaper={removePaper} onMerge={mergePaper} />
+            ))}
+          </div>
+        : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>Drag &amp; drop PDFs or screenshots here.<br /><span style={{ fontSize: 12.5, color: C.faint }}>Each file starts a paper · add pages or merge for multi-page papers</span></div>}
+
+      <button onClick={() => inputRef.current?.click()} style={{ fontFamily: C.font, fontSize: 13.5, fontWeight: 600, padding: "9px 18px", borderRadius: 10, cursor: "pointer", color: C.primary, background: "#fff", border: `1px solid ${hexA(C.primary, 0.4)}`, display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {has ? <React.Fragment><IconPlus s={14} c={C.primary} /> Add paper</React.Fragment> : "Browse files"}
+      </button>
+    </div>);
+}
+
+// Optional zone: a simple flat list of handout files.
+function HandoutsZone({ files, onAdd, onRemove }) {
+  const inputRef = React.useRef(null);
+  const [drag, setDrag] = React.useState(false);
+  const has = files.length > 0;
+  const pick = (e) => { const fs = acceptedFiles(e.target.files); if (fs.length) onAdd(fs); e.target.value = ""; };
+  const drop = (e) => { e.preventDefault(); setDrag(false); const fs = acceptedFiles(e.dataTransfer.files); if (fs.length) onAdd(fs); };
+  return (
+    <div onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={drop}
+      style={{ flex: 1, minWidth: 280, background: drag ? hexA(C.primary, 0.05) : "#fff", borderRadius: 18, border: `2px dashed ${drag ? C.primary : (has ? hexA(C.good, 0.45) : "#cfd3e6")}`, padding: 22, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12, boxShadow: has ? C.shadowMd : C.shadowSm }}>
+      <input ref={inputRef} type="file" accept={ACCEPT} multiple onChange={pick} style={{ display: "none" }} />
+      <div style={{ width: 50, height: 50, borderRadius: 14, background: "#f1f2f8", display: "flex", alignItems: "center", justifyContent: "center" }}><IconUpload s={25} c={C.ink2} /></div>
+      <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Course handouts</div>
+      <Tag tone="muted">optional · improves results</Tag>
+      {has
         ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", width: "100%" }}>
-            {files.map((f, i) => <FileChip key={f.name + i} name={f.name} accent={accent} onRemove={() => onRemove(i)} />)}
+            {files.map((f, i) => <FileChip key={f.name + i} name={f.name} onRemove={() => onRemove(i)} />)}
           </div>
         : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted }}>Drag &amp; drop PDFs or screenshots here</div>}
-
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 2 }}>
-        <button onClick={() => inputRef.current && inputRef.current.click()} style={{
-          fontFamily: C.font, fontSize: 13.5, fontWeight: 600, padding: "9px 18px", borderRadius: 10, cursor: "pointer",
-          color: accent ? C.primary : C.ink2, background: "#fff", border: `1px solid ${accent ? hexA(C.primary, 0.4) : C.line}`,
-          display: "inline-flex", alignItems: "center", gap: 6,
-        }}>{has ? <React.Fragment><IconPlus s={14} c={accent ? C.primary : C.ink2} /> Add more</React.Fragment> : "Browse files"}</button>
-      </div>
+      <button onClick={() => inputRef.current?.click()} style={{ fontFamily: C.font, fontSize: 13.5, fontWeight: 600, padding: "9px 18px", borderRadius: 10, cursor: "pointer", color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {has ? <React.Fragment><IconPlus s={14} c={C.ink2} /> Add more</React.Fragment> : "Browse files"}
+      </button>
     </div>);
 }
 
 export default function LandingScreen({ papers, handouts, setPapers, setHandouts, onStart }) {
-  const ready = papers.length > 0;
-  const total = papers.length + handouts.length;
-  const add = (setter) => (names) => setter((p) => [...p, ...names]);
-  const remove = (setter) => (i) => setter((p) => p.filter((_, j) => j !== i));
   const isMobile = useIsMobile();
+  const ready = papers.length > 0;
+  const pageCount = papers.reduce((n, p) => n + p.pages.length, 0) + handouts.length;
+
+  const addHandouts = (fs) => setHandouts((h) => [...h, ...fs]);
+  const removeHandout = (i) => setHandouts((h) => h.filter((_, j) => j !== i));
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
@@ -91,16 +143,16 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
           Drop in your past exam papers and we'll surface the questions that come back year after year — ranked by how often they repeat.
         </p>
 
-        <div style={{ display: "flex", gap: 20, width: "100%", marginBottom: 30, alignItems: "stretch", flexWrap: "wrap" }}>
-          <UploadZone required title="Previous year papers" files={papers} onAdd={add(setPapers)} onRemove={remove(setPapers)} />
-          <UploadZone title="Course handouts" files={handouts} onAdd={add(setHandouts)} onRemove={remove(setHandouts)} />
+        <div style={{ display: "flex", gap: 20, width: "100%", marginBottom: 30, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <PapersZone papers={papers} setPapers={setPapers} />
+          <HandoutsZone files={handouts} onAdd={addHandouts} onRemove={removeHandout} />
         </div>
 
         <PrimaryButton size="lg" disabled={!ready} glow={ready} onClick={onStart}>
           Start learning <IconArrow s={19} />
         </PrimaryButton>
         <div style={{ fontFamily: C.font, fontSize: 13, color: C.faint, marginTop: 14, minHeight: 18 }}>
-          {ready ? `${total} file${total > 1 ? "s" : ""} ready · we'll analyse your papers next` : "Add at least one past paper to begin"}
+          {ready ? `${papers.length} paper${papers.length > 1 ? "s" : ""} · ${pageCount} file${pageCount > 1 ? "s" : ""} ready — we'll analyse next` : "Add at least one past paper to begin"}
         </div>
       </div>
     </div>);

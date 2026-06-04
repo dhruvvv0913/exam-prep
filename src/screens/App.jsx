@@ -58,7 +58,7 @@ export default function App() {
     <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.bg, fontFamily: C.font }}>
       <TopBar screen={screen} summary={result} onHome={home} onReupload={reupload} />
       {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} />}
-      {screen === "loading" && <LoadingScreen papers={papers} onDone={onDone} onError={reupload} />}
+      {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} onDone={onDone} onError={reupload} />}
       {screen === "analysis" && (result
         ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} />
         : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} />)}

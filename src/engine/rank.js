@@ -37,6 +37,7 @@ export function groupsFromClusters(clusters) {
     topic: topicLabel(c.items),
     items: c.items.map((it) => ({
       uid: `${it.pIdx ?? 0}__${it.id}`, // stable per-question identity for editing
+      pIdx: it.pIdx ?? 0, // which uploaded paper it came from (for the "appears" count)
       id: it.id,
       text: it.text,
       paperId: it.paperId,
@@ -51,7 +52,9 @@ export function summarize(groups) {
   const enriched = groups
     .filter((g) => g.items.length > 0)
     .map((g) => {
-      const papers = new Set(g.items.map((it) => it.paperId));
+      // "appears" = distinct uploaded papers (by pIdx), robust to two papers
+      // sharing a session/year label.
+      const papers = new Set(g.items.map((it) => it.pIdx ?? it.paperId));
       const rep = representative(g.items);
       const marksOf = (it) => (typeof it.marks === "number" ? it.marks : 5);
       const totalMarks = g.items.reduce((s, it) => s + marksOf(it), 0);
