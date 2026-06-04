@@ -26,12 +26,21 @@ function StarBtn({ on, onClick }) {
     </button>);
 }
 
+function ToggleChip({ active, onClick, children }) {
+  return (
+    <button onClick={onClick} style={{
+      fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "8px 14px", borderRadius: 999, cursor: "pointer",
+      border: `1px solid ${active ? "transparent" : C.line}`, color: active ? "#fff" : C.ink2,
+      background: active ? C.primary : "#fff", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+    }}>{children}</button>);
+}
+
 // ---- one group card: topic header + collapsible question list -----------
 function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone }) {
   const unique = cluster.unique;
   const isMobile = useIsMobile();
   return (
-    <div style={{ background: "#fff", borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadowSm, overflow: "hidden" }}>
+    <div style={{ background: "#fff", borderRadius: 16, border: `1px solid ${C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${C.line}`, boxShadow: C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s" }}>
       {/* header (click anywhere to collapse/expand) */}
       <div onClick={onToggle} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
         <div style={{
@@ -85,6 +94,9 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
   const [editing, setEditing] = React.useState(false);
   // collapsed by id; default = the "asked once" groups start collapsed.
   const [collapsed, setCollapsed] = React.useState(() => new Set(summarize(data.groups).unique.map((c) => c.id)));
+  const [query, setQuery] = React.useState("");
+  const [hideDone, setHideDone] = React.useState(false);
+  const [starredOnly, setStarredOnly] = React.useState(false);
 
   const { ranked, unique } = React.useMemo(() => summarize(data.groups), [data.groups]);
   const maxMarks = Math.max(1, ...ranked.map((c) => c.totalMarks));
@@ -112,35 +124,78 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
     );
   }
 
+  // study progress (over all groups) + search/filter
+  const rankOf = new Map(ranked.map((c, i) => [c.id, i + 1]));
+  const allGroups = [...ranked, ...unique];
+  const doneGroups = allGroups.filter((c) => done.has(c.id));
+  const donePct = allGroups.length ? Math.round((doneGroups.length / allGroups.length) * 100) : 0;
+  const doneMarks = doneGroups.reduce((s, c) => s + c.totalMarks, 0);
+  const totalMarksAll = allGroups.reduce((s, c) => s + c.totalMarks, 0);
+
+  const q = query.trim().toLowerCase();
+  const match = (c) => {
+    if (starredOnly && !starred.has(c.id)) return false;
+    if (hideDone && done.has(c.id)) return false;
+    if (q && !c.topic.toLowerCase().includes(q) && !c.questions.some((x) => x.text.toLowerCase().includes(q))) return false;
+    return true;
+  };
+  const rankedF = ranked.filter(match);
+  const uniqueF = unique.filter(match);
+  const noteStyle = { fontFamily: C.font, fontSize: 14, color: C.muted, padding: "4px 4px" };
+
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 1040, margin: "0 auto", padding: isMobile ? "24px 16px 48px" : "34px 32px 60px" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: 22 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: 18 }}>
           <div>
             <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: isMobile ? 23 : 28, color: C.ink, letterSpacing: -0.3 }}>Important questions</div>
             <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across your {paperCount} uploaded {paperCount === 1 ? "paper" : "papers"}.</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
-            <Tag tone="good"><IconCheck s={12} c={C.good} sw={2.6} /> {done.size} done</Tag>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
             <GhostButton onClick={() => setEditing(true)}><IconLayers s={15} c={C.ink2} /> Edit groups</GhostButton>
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {ranked.length > 0
-            ? ranked.map((c, i) => card(c, i + 1))
-            : <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
-                No repeated concepts yet. Upload papers from <strong>two or more years</strong> of the same subject and we'll surface the questions that come back.
-              </div>}
+        {/* study progress */}
+        {allGroups.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: C.font, fontSize: 12.5, color: C.muted, marginBottom: 6 }}>
+              <span style={{ fontWeight: 600, color: C.ink2 }}>Studied {donePct}%</span>
+              <span>{doneGroups.length} of {allGroups.length} topics · {doneMarks}/{totalMarksAll} marks done</span>
+            </div>
+            <div style={{ height: 8, borderRadius: 999, background: "#e3e5f1", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${donePct}%`, background: `linear-gradient(90deg, ${C.good}, #43c08a)`, borderRadius: 999, transition: "width .3s" }} />
+            </div>
+          </div>
+        )}
 
-          {unique.length > 0 && <React.Fragment>
+        {/* search + filters */}
+        {allGroups.length > 0 && (
+          <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search topics or questions…"
+              style={{ flex: "1 1 240px", minWidth: 0, fontFamily: C.font, fontSize: 14, padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none" }} />
+            <ToggleChip active={starredOnly} onClick={() => setStarredOnly((v) => !v)}><IconStar s={13} on c={starredOnly ? "#fff" : C.gold} /> Starred</ToggleChip>
+            <ToggleChip active={hideDone} onClick={() => setHideDone((v) => !v)}><IconCheck s={12} c={hideDone ? "#fff" : C.good} sw={2.6} /> Hide done</ToggleChip>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {ranked.length === 0
+            ? <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
+                No repeated concepts yet. Upload papers from <strong>two or more years</strong> of the same subject and we'll surface the questions that come back.
+              </div>
+            : rankedF.length > 0
+              ? rankedF.map((c) => card(c, rankOf.get(c.id)))
+              : <div style={noteStyle}>No repeated topics match your search/filters.</div>}
+
+          {uniqueF.length > 0 && <React.Fragment>
             <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "8px 4px" }}>
               <div style={{ flex: 1, height: 1, background: C.line }} />
               <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, whiteSpace: "nowrap", fontWeight: 500 }}>Asked once — lower priority</span>
               <div style={{ flex: 1, height: 1, background: C.line }} />
             </div>
-            {unique.map((c) => card(c, 0))}
+            {uniqueF.map((c) => card(c, 0))}
           </React.Fragment>}
         </div>
       </div>
