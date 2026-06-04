@@ -76,7 +76,7 @@ export function summarize(groups) {
         appears: papers.size,
         variants: g.items.length,
         // full list of questions in the group (year-sorted), for the card layout
-        questions: ordered.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
+        questions: ordered.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
         similars: g.items
           .filter((it) => it !== rep)
           .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),

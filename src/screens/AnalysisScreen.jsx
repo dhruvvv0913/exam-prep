@@ -10,6 +10,10 @@ import { useIsMobile } from "../useIsMobile.js";
 import { summarize } from "../engine/rank.js";
 import ReviewScreen from "./ReviewScreen.jsx";
 
+// Marks aren't read off the (often garbled) paper — they're assigned from the
+// standard scheme, so we label them as estimates.
+const MARKS_HINT = "Estimated from the standard exam scheme (compulsory Q1 parts = 1 mark, others = 5)";
+
 function MiniCheck({ on, onClick }) {
   return (
     <button onClick={onClick} title={on ? "Mark as not done" : "Mark as done"} style={{
@@ -54,7 +58,7 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ fontFamily: C.font, fontSize: 16, fontWeight: 600, lineHeight: 1.35, color: C.ink, textWrap: "pretty" }}>{cluster.topic}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <Tag tone="primary">{cluster.totalMarks} {cluster.totalMarks === 1 ? "mark" : "marks"}</Tag>
+            <Tag tone="primary" title={MARKS_HINT}>{cluster.totalMarks} {cluster.totalMarks === 1 ? "mark" : "marks"}</Tag>
             {unique
               ? <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint }}>asked once · 1 question</span>
               : <React.Fragment>
@@ -78,9 +82,9 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
         <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
           {cluster.questions.map((q, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
-              <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.year ?? "?"}</span>
+              <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.paperId || q.year || "?"}</span>
               <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
-              <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
+              <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
             </div>
           ))}
         </div>
@@ -137,6 +141,8 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
   // study progress (over all groups) + search/filter
   const rankOf = new Map(ranked.map((c, i) => [c.id, i + 1]));
   const allGroups = [...ranked, ...unique];
+  const allCollapsed = allGroups.length > 0 && allGroups.every((c) => collapsed.has(c.id));
+  const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(allGroups.map((c) => c.id)));
   const doneGroups = allGroups.filter((c) => done.has(c.id));
   const donePct = allGroups.length ? Math.round((doneGroups.length / allGroups.length) * 100) : 0;
   const doneMarks = doneGroups.reduce((s, c) => s + c.totalMarks, 0);
@@ -161,6 +167,7 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
             {subject && <div style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, letterSpacing: 0.3, textTransform: "uppercase", color: C.primary, marginBottom: 4 }}>{subject}</div>}
             <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: isMobile ? 23 : 28, color: C.ink, letterSpacing: -0.3 }}>Important questions</div>
             <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across your {paperCount} uploaded {paperCount === 1 ? "paper" : "papers"}.</div>
+            <div title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 12, color: C.faint, marginTop: 6 }}>Marks are estimated from the standard exam scheme.</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
@@ -188,6 +195,7 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
               style={{ flex: "1 1 240px", minWidth: 0, fontFamily: C.font, fontSize: 14, padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none" }} />
             <ToggleChip active={starredOnly} onClick={() => setStarredOnly((v) => !v)}><IconStar s={13} on c={starredOnly ? "#fff" : C.gold} /> Starred</ToggleChip>
             <ToggleChip active={hideDone} onClick={() => setHideDone((v) => !v)}><IconCheck s={12} c={hideDone ? "#fff" : C.good} sw={2.6} /> Hide done</ToggleChip>
+            <ToggleChip active={false} onClick={toggleAll}><IconChevron s={14} c={C.ink2} dir={allCollapsed ? "down" : "up"} /> {allCollapsed ? "Expand all" : "Collapse all"}</ToggleChip>
           </div>
         )}
 

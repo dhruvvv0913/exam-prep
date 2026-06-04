@@ -11,7 +11,7 @@ export function Logo({ onClick }) {
     </div>);
 }
 
-export function Tag({ children, tone = "muted" }) {
+export function Tag({ children, tone = "muted", title }) {
   const map = {
     muted: { bg: "#f1f2f8", bd: C.line, fg: C.muted },
     primary: { bg: C.primarySoft, bd: "transparent", fg: C.primary },
@@ -20,7 +20,7 @@ export function Tag({ children, tone = "muted" }) {
   };
   const t = map[tone] || map.muted;
   return (
-    <span style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 500, padding: "3px 11px", borderRadius: 999, background: t.bg, border: `1px solid ${t.bd}`, color: t.fg, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 5 }}>
+    <span title={title} style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 500, padding: "3px 11px", borderRadius: 999, background: t.bg, border: `1px solid ${t.bd}`, color: t.fg, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 5 }}>
       {children}
     </span>);
 }
