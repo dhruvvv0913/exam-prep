@@ -1,10 +1,14 @@
-// Analysis screen: ranked repeated-question clusters with live star/done and a
-// slide-out cluster panel. Data comes from the analysis pipeline (rank.js).
+// Analysis screen: each concept group is a card — topic header (with rank,
+// stats, star/done, collapse toggle) and the full list of its questions below.
+// Data is derived from the editable groups (rank.summarize); the admin review
+// screen ("Edit groups") edits those groups directly.
 import React from "react";
-import { C, hexA } from "../theme.js";
-import { IconStar, IconCheck, IconChevron, IconClose, IconArrow, IconLayers } from "../components/icons.jsx";
-import { Tag, HeatBar } from "../components/atoms.jsx";
+import { C } from "../theme.js";
+import { IconStar, IconCheck, IconChevron, IconLayers } from "../components/icons.jsx";
+import { Tag, HeatBar, GhostButton } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
+import { summarize } from "../engine/rank.js";
+import ReviewScreen from "./ReviewScreen.jsx";
 
 function MiniCheck({ on, onClick }) {
   return (
@@ -22,126 +26,95 @@ function StarBtn({ on, onClick }) {
     </button>);
 }
 
-// ---- one ranked cluster row -------------------------------------------
-function RankRow({ rank, cluster, max, open, onOpen, starred, done, onStar, onDone }) {
+// ---- one group card: topic header + collapsible question list -----------
+function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone }) {
   const unique = cluster.unique;
-  const timer = React.useRef(null);
-  const start = () => { if (!unique) timer.current = setTimeout(onOpen, 1600); };
-  const stop = () => clearTimeout(timer.current);
   return (
-    <div onMouseEnter={start} onMouseLeave={stop} onClick={unique ? undefined : onOpen}
-      style={{
-        display: "flex", alignItems: "flex-start", gap: 16, padding: "16px 18px",
-        background: open ? hexA(C.primary, 0.05) : "#fff", borderRadius: 16,
-        border: `1px solid ${open ? hexA(C.primary, 0.5) : C.line}`,
-        boxShadow: open ? "0 6px 20px rgba(63,81,196,0.14)" : C.shadowSm,
-        cursor: unique ? "default" : "pointer", transition: "border-color .15s, box-shadow .15s, background .15s",
-      }}>
-      <div style={{
-        width: 30, height: 30, flex: "0 0 auto", borderRadius: "50%", marginTop: 1,
-        background: unique ? "#f1f2f8" : (rank === 1 ? C.primary : C.primarySoft),
-        color: unique ? C.faint : (rank === 1 ? "#fff" : C.primary),
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: C.font, fontWeight: 700, fontSize: 13.5,
-      }}>{unique ? "·" : rank}</div>
+    <div style={{ background: "#fff", borderRadius: 16, border: `1px solid ${C.line}`, boxShadow: C.shadowSm, overflow: "hidden" }}>
+      {/* header (click anywhere to collapse/expand) */}
+      <div onClick={onToggle} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
+        <div style={{
+          width: 30, height: 30, flex: "0 0 auto", borderRadius: "50%", marginTop: 1,
+          background: unique ? "#f1f2f8" : (rank === 1 ? C.primary : C.primarySoft),
+          color: unique ? C.faint : (rank === 1 ? "#fff" : C.primary),
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: C.font, fontWeight: 700, fontSize: 13.5,
+        }}>{unique ? "·" : rank}</div>
 
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 11 }}>
-        <div style={{ fontFamily: C.font, fontSize: 15.5, fontWeight: 500, lineHeight: 1.45, color: C.ink, textWrap: "pretty" }}>{cluster.q}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Tag>{cluster.topic}</Tag>
-          {cluster.marks && <Tag tone="primary">{cluster.marks}</Tag>}
-          {unique
-            ? <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint }}>asked once · no variants</span>
-            : <React.Fragment>
-                <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted }}>appears in {cluster.appears} exams · {cluster.variants} variants</span>
-                <HeatBar value={cluster.variants} max={max} />
-              </React.Fragment>}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontFamily: C.font, fontSize: 16, fontWeight: 600, lineHeight: 1.35, color: C.ink, textWrap: "pretty" }}>{cluster.topic}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <Tag tone="primary">{cluster.totalMarks} {cluster.totalMarks === 1 ? "mark" : "marks"}</Tag>
+            {unique
+              ? <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint }}>asked once · 1 question</span>
+              : <React.Fragment>
+                  <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted }}>appears in {cluster.appears} exams · {cluster.variants} questions</span>
+                  <HeatBar value={cluster.totalMarks} max={max} />
+                </React.Fragment>}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+            <StarBtn on={starred} onClick={onStar} />
+            <MiniCheck on={done} onClick={onDone} />
+          </div>
+          <IconChevron s={18} c={C.faint} dir={collapsed ? "down" : "up"} />
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10, flex: "0 0 auto" }}>
-        {!unique &&
-          <button onClick={(e) => { e.stopPropagation(); onOpen(); }} style={{
-            display: "inline-flex", alignItems: "center", gap: 5, fontFamily: C.font, fontSize: 12.5, fontWeight: 600,
-            padding: "5px 11px", borderRadius: 999, cursor: "pointer",
-            color: open ? "#fff" : C.primary, background: open ? C.primary : C.primarySoft, border: "none",
-          }}>{cluster.variants} similar <IconChevron s={14} c={open ? "#fff" : C.primary} dir={open ? "up" : "down"} /></button>}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={(e) => e.stopPropagation()}>
-          <StarBtn on={starred} onClick={onStar} />
-          <MiniCheck on={done} onClick={onDone} />
+      {/* question list */}
+      {!collapsed && (
+        <div style={{ padding: "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {cluster.questions.map((q, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
+              <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.year ?? "?"}</span>
+              <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
+              <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>);
 }
 
-// ---- slide-out cluster panel ------------------------------------------
-function SidePanel({ cluster, paperCount, onClose, starred, onStar }) {
-  return (
-    <React.Fragment>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
-      <div style={{
-        position: "absolute", top: 0, right: 0, bottom: 0, width: "min(540px, 94vw)", background: "#fbfbfe",
-        boxShadow: "-20px 0 60px rgba(20,22,42,0.22)", zIndex: 41, display: "flex", flexDirection: "column",
-        animation: "panelin .3s cubic-bezier(.2,.8,.25,1)",
-      }}>
-        <div style={{ padding: "22px 26px 18px", borderBottom: `1px solid ${C.line}`, background: "#fff" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <Tag>{cluster.topic}</Tag>{cluster.marks && <Tag tone="primary">{cluster.marks}</Tag>}
-            </div>
-            <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><IconClose /></button>
-          </div>
-          <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 21, color: C.ink, marginTop: 14, display: "flex", alignItems: "center", gap: 9 }}>
-            <IconLayers s={18} c={C.primary} /> {cluster.variants} similar questions
-          </div>
-          <div style={{ fontFamily: C.font, fontSize: 13, color: C.muted, marginTop: 3 }}>Found across your {paperCount} papers · appears in {cluster.appears} exams</div>
-        </div>
-
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 26px 8px" }}>
-          <div style={{ fontFamily: C.font, fontSize: 11.5, letterSpacing: 0.6, textTransform: "uppercase", color: C.primary, fontWeight: 600, marginBottom: 9 }}>Representative</div>
-          <div style={{ background: hexA(C.primary, 0.06), border: `1px solid ${hexA(C.primary, 0.25)}`, borderRadius: 14, padding: 16, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ fontFamily: C.font, fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, color: C.ink, textWrap: "pretty" }}>{cluster.q}</div>
-            <button onClick={onStar} style={{ background: "none", border: "none", padding: 2, cursor: "pointer", flex: "0 0 auto" }}><IconStar s={20} on={starred} /></button>
-          </div>
-
-          <div style={{ fontFamily: C.font, fontSize: 11.5, letterSpacing: 0.6, textTransform: "uppercase", color: C.faint, fontWeight: 600, margin: "22px 0 12px" }}>All variants found</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {cluster.similars.map((s, i) => (
-              <div key={i} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 13, padding: "13px 15px", display: "flex", alignItems: "flex-start", gap: 12, boxShadow: C.shadowSm }}>
-                <span style={{ fontFamily: C.font, fontSize: 11.5, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "4px 9px", background: "#f1f2f8", borderRadius: 8, flex: "0 0 auto", marginTop: 1 }}>{s.src}</span>
-                <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{s.text}</div>
-              </div>))}
-          </div>
-        </div>
-      </div>
-    </React.Fragment>);
-}
-
 // ---- screen ------------------------------------------------------------
-export default function AnalysisScreen({ data }) {
-  const { ranked, unique, paperCount } = data;
-  const [open, setOpen] = React.useState(null);
+export default function AnalysisScreen({ data, onGroupsChange }) {
+  const paperCount = data.paperCount;
+  const [editing, setEditing] = React.useState(false);
   const [doneSet, setDoneSet] = React.useState(() => new Set());
   const [starSet, setStarSet] = React.useState(() => new Set());
+  // collapsed by id; default = the "asked once" groups start collapsed.
+  const [collapsed, setCollapsed] = React.useState(() => new Set(summarize(data.groups).unique.map((c) => c.id)));
 
-  const byId = React.useMemo(() => new Map([...ranked, ...unique].map((c) => [c.id, c])), [ranked, unique]);
-  const maxV = Math.max(1, ...ranked.map((c) => c.variants));
+  const { ranked, unique } = React.useMemo(() => summarize(data.groups), [data.groups]);
+  const maxMarks = Math.max(1, ...ranked.map((c) => c.totalMarks));
+  const isMobile = useIsMobile();
 
   const toggle = (setter) => (id) => setter((prev) => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
   const toggleDone = toggle(setDoneSet);
   const toggleStar = toggle(setStarSet);
+  const toggleCollapse = toggle(setCollapsed);
 
-  const openCluster = open != null ? byId.get(open) : null;
-  const isMobile = useIsMobile();
-
-  const row = (c, rank) => (
-    <RankRow key={c.id} rank={rank} cluster={c} max={maxV}
-      open={open === c.id} onOpen={() => setOpen(c.id)}
+  const card = (c, rank) => (
+    <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
+      collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
       starred={starSet.has(c.id)} done={doneSet.has(c.id)}
       onStar={() => toggleStar(c.id)} onDone={() => toggleDone(c.id)} />
   );
+
+  // Review/edit mode replaces the ranked view (all hooks above run regardless).
+  if (editing) {
+    return (
+      <ReviewScreen
+        groups={data.groups}
+        onSave={(g) => { onGroupsChange(g); setEditing(false); }}
+        onCancel={() => setEditing(false)}
+      />
+    );
+  }
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
@@ -149,17 +122,18 @@ export default function AnalysisScreen({ data }) {
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: 22 }}>
           <div>
             <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: isMobile ? 23 : 28, color: C.ink, letterSpacing: -0.3 }}>Important questions</div>
-            <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Ranked by how often each concept repeats across your {paperCount} uploaded {paperCount === 1 ? "paper" : "papers"}.</div>
+            <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across your {paperCount} uploaded {paperCount === 1 ? "paper" : "papers"}.</div>
           </div>
-          <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
             <Tag tone="good"><IconCheck s={12} c={C.good} sw={2.6} /> {doneSet.size} done</Tag>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starSet.size} starred</Tag>
+            <GhostButton onClick={() => setEditing(true)}><IconLayers s={15} c={C.ink2} /> Edit groups</GhostButton>
           </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {ranked.length > 0
-            ? ranked.map((c, i) => row(c, i + 1))
+            ? ranked.map((c, i) => card(c, i + 1))
             : <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
                 No repeated concepts yet. Upload papers from <strong>two or more years</strong> of the same subject and we'll surface the questions that come back.
               </div>}
@@ -170,12 +144,9 @@ export default function AnalysisScreen({ data }) {
               <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, whiteSpace: "nowrap", fontWeight: 500 }}>Asked once — lower priority</span>
               <div style={{ flex: 1, height: 1, background: C.line }} />
             </div>
-            {unique.map((c) => row(c, 0))}
+            {unique.map((c) => card(c, 0))}
           </React.Fragment>}
         </div>
       </div>
-
-      {openCluster && <SidePanel cluster={openCluster} paperCount={paperCount} onClose={() => setOpen(null)}
-        starred={starSet.has(openCluster.id)} onStar={() => toggleStar(openCluster.id)} />}
     </div>);
 }

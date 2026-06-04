@@ -1,8 +1,11 @@
-// Turn raw clusters into ranked, display-ready data.
+// Groups <-> ranked display data.
+//
+// A "group" is the editable source of truth: { id, topic, items: [question] }.
+// The analysis screen shows a derived, ranked view; the review screen edits the
+// groups directly. Keeping groups as the source lets the user merge/split/rename
+// without re-running the AI.
 //   appears  = number of distinct exams (papers) the concept showed up in
 //   variants = number of distinct question wordings found
-// A concept that appears in >= 2 exams is a "repeat" (ranked); one that shows
-// up in a single exam is "asked once" (lower priority).
 
 const STOP = new Set(
   ("the of and to in is are be a an for with on at as by it its from this that these how " +
@@ -11,8 +14,8 @@ const STOP = new Set(
    "brief major role about can does do how various their there here also with respect").split(" ")
 );
 
-// Short human label from the most frequent meaningful words across the cluster.
-function topicLabel(items) {
+// Short human label from the most frequent meaningful words across the items.
+export function topicLabel(items) {
   const freq = new Map();
   for (const it of items) {
     for (const w of (it.text.toLowerCase().match(/[a-z]{4,}/g) || [])) {
@@ -27,26 +30,56 @@ function topicLabel(items) {
 // The longest wording is usually the most descriptive => use as representative.
 const representative = (items) => items.slice().sort((a, b) => b.text.length - a.text.length)[0];
 
-export function rankClusters(clusters) {
-  const enriched = clusters.map((c, i) => {
-    const papers = new Set(c.items.map((it) => it.paperId));
-    const rep = representative(c.items);
-    return {
-      id: "c" + i,
-      topic: topicLabel(c.items),
-      marks: rep.marks || "",
-      q: rep.text,
-      appears: papers.size,
-      variants: c.items.length,
-      similars: c.items
-        .filter((it) => it !== rep)
-        .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),
-      unique: papers.size < 2,
-    };
-  });
+// Raw clusters (with embedding vecs) -> serializable, editable groups.
+export function groupsFromClusters(clusters) {
+  return clusters.map((c, i) => ({
+    id: `g${i}`,
+    topic: topicLabel(c.items),
+    items: c.items.map((it) => ({
+      uid: `${it.pIdx ?? 0}__${it.id}`, // stable per-question identity for editing
+      id: it.id,
+      text: it.text,
+      paperId: it.paperId,
+      year: it.year ?? null,
+      marks: it.marks ?? 5,
+    })),
+  }));
+}
 
-  const score = (c) => c.appears * 100 + c.variants;
-  const ranked = enriched.filter((c) => !c.unique).sort((a, b) => score(b) - score(a));
+// Groups -> ranked display data for the analysis screen.
+export function summarize(groups) {
+  const enriched = groups
+    .filter((g) => g.items.length > 0)
+    .map((g) => {
+      const papers = new Set(g.items.map((it) => it.paperId));
+      const rep = representative(g.items);
+      const marksOf = (it) => (typeof it.marks === "number" ? it.marks : 5);
+      const totalMarks = g.items.reduce((s, it) => s + marksOf(it), 0);
+      return {
+        id: g.id,
+        topic: g.topic,
+        totalMarks, // collective marks across all questions in the group
+        q: rep.text, // representative (kept for back-compat / Node scripts)
+        appears: papers.size,
+        variants: g.items.length,
+        // full list of questions in the group, for the card layout
+        questions: g.items.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
+        similars: g.items
+          .filter((it) => it !== rep)
+          .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),
+        unique: papers.size < 2,
+      };
+    });
+
+  // Rank by total marks (most exam weight first), then repetition, then count.
+  const ranked = enriched
+    .filter((c) => !c.unique)
+    .sort((a, b) => b.totalMarks - a.totalMarks || b.appears - a.appears || b.variants - a.variants);
   const unique = enriched.filter((c) => c.unique);
-  return { clusters: enriched, ranked, unique };
+  return { ranked, unique };
+}
+
+// Back-compat for the Node dev scripts: clusters -> { ranked, unique }.
+export function rankClusters(clusters) {
+  return summarize(groupsFromClusters(clusters));
 }

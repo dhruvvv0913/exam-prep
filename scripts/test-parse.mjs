@@ -28,4 +28,4 @@ const text = await extract(process.argv[2]);
 const { meta, questions } = parsePaper(text);
 console.log("META:", JSON.stringify(meta));
 console.log(`QUESTIONS (${questions.length}):`);
-for (const q of questions) console.log(`  [${q.id}] ${q.text}`);
+for (const q of questions) console.log(`  [${q.id}] (${q.marks}m) ${q.text}`);

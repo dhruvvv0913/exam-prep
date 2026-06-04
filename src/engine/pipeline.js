@@ -5,7 +5,7 @@
 import { extractText } from "./extractText.js";
 import { parsePaper } from "./parsePaper.js";
 import { clusterQuestions } from "./cluster.js";
-import { rankClusters } from "./rank.js";
+import { groupsFromClusters } from "./rank.js";
 
 export async function analyze(files, { onProgress } = {}) {
   const items = [];
@@ -29,7 +29,8 @@ export async function analyze(files, { onProgress } = {}) {
     const { meta, questions } = parsePaper(text);
     const paperId = `${meta.session ?? meta.examType ?? "Paper"} ${meta.year ?? ""}`.trim();
     papers.push({ name: file.name, ...meta, method, count: questions.length });
-    for (const q of questions) items.push({ ...q, paperId, year: meta.year });
+    // pIdx (paper index) gives every question a globally-unique identity for editing.
+    for (const q of questions) items.push({ ...q, paperId, year: meta.year, pIdx: i });
 
     onProgress?.({ stage: "extracted", index: i, total: files.length, questions: items.length });
   }
@@ -43,13 +44,11 @@ export async function analyze(files, { onProgress } = {}) {
   }
 
   onProgress?.({ stage: "ranking" });
-  const { ranked, unique, clusters: enriched } = rankClusters(clusters);
+  const groups = groupsFromClusters(clusters); // editable source of truth
 
   return {
     papers,
-    ranked,
-    unique,
-    clusters: enriched,
+    groups,
     questionCount: items.length,
     paperCount: files.length,
   };

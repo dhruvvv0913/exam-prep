@@ -25,3 +25,6 @@ dist-ssr
 
 # Tesseract.js artifact from running Node OCR scripts
 eng.traineddata
+
+# Dev OCR cache from scripts/test-eod.mjs
+scripts/eod-items.json

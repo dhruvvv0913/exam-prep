@@ -146,6 +146,16 @@ export function splitQuestions(text) {
     if (cur) cur.text += " " + l;
   }
   flush();
+
+  // Marks per question (standard KIIT scheme): the compulsory multi-part Q1
+  // (mid-sem and end-sem Section-A) is worth 1 mark per part; every other part
+  // is a 5-mark long-answer question. We detect "Q1 is multi-part" by counting
+  // its parts, so it works across all three formats without reading the (often
+  // garbled) marks column.
+  const q1Parts = out.filter((q) => q.num === "1").length;
+  const q1IsShort = q1Parts >= 3;
+  for (const q of out) q.marks = (q.num === "1" && q1IsShort) ? 1 : 5;
+
   return out;
 }
 

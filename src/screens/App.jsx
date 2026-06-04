@@ -52,6 +52,7 @@ export default function App() {
   const reupload = () => { setPapers([]); setHandouts([]); setScreen("landing"); };
   const start = () => setScreen("loading");
   const onDone = (r) => { setResult(r); setScreen("analysis"); };
+  const onGroupsChange = (groups) => setResult((r) => ({ ...r, groups }));
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.bg, fontFamily: C.font }}>
@@ -59,7 +60,7 @@ export default function App() {
       {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} />}
       {screen === "loading" && <LoadingScreen papers={papers} onDone={onDone} onError={reupload} />}
       {screen === "analysis" && (result
-        ? <AnalysisScreen data={result} />
+        ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} />
         : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} />)}
     </div>);
 }
