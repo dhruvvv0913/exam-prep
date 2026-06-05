@@ -10,7 +10,8 @@ import LandingScreen from "./LandingScreen.jsx";
 import LoadingScreen from "./LoadingScreen.jsx";
 import AnalysisScreen from "./AnalysisScreen.jsx";
 import LibraryScreen from "./LibraryScreen.jsx";
-import { loadLibrarySubject } from "../engine/library.js";
+import AdminScreen from "./AdminScreen.jsx";
+import { getSubjectContent } from "../engine/libraryDb.js";
 import { useAuth } from "../auth.jsx";
 
 // Sign-in / account control (hidden until Supabase is configured).
@@ -34,7 +35,7 @@ function Account({ auth }) {
 // ======================================================================
 // TOP BAR
 // ======================================================================
-function TopBar({ screen, summary, fromLibrary, auth, onHome, onReupload, onBrowse }) {
+function TopBar({ screen, summary, fromLibrary, auth, onHome, onReupload, onBrowse, onAdmin }) {
   const isMobile = useIsMobile();
   return (
     <div style={{ flex: "0 0 auto", height: 66, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 32px", borderBottom: `1px solid ${C.line}`, background: "rgba(255,255,255,0.78)", backdropFilter: "blur(10px)", zIndex: 10 }}>
@@ -49,6 +50,7 @@ function TopBar({ screen, summary, fromLibrary, auth, onHome, onReupload, onBrow
             </React.Fragment>
           : <React.Fragment>
               {screen !== "library" && <span onClick={onBrowse} style={{ fontFamily: C.font, fontSize: 14, fontWeight: 500, color: C.ink2, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><IconLayers s={15} c={C.ink2} /> Subjects</span>}
+              {auth.isAdmin && screen !== "admin" && <span onClick={onAdmin} style={{ fontFamily: C.font, fontSize: 14, fontWeight: 600, color: C.primary, cursor: "pointer" }}>Admin</span>}
               {!isMobile && !auth.enabled && (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 13px", border: `1px solid ${C.line}`, borderRadius: 999, background: "#fff", fontFamily: C.font, fontSize: 12.5, fontWeight: 500, color: C.muted }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.good }} /> Free · runs in your browser
@@ -109,10 +111,13 @@ export default function App() {
   const onDone = (r) => { setResult(r); setProgressKey("upload"); setDone(new Set()); setStarred(new Set()); setScreen("analysis"); };
   const onGroupsChange = (groups) => setResult((r) => ({ ...r, groups }));
 
-  // Open a pre-analysed library subject (its own progress bucket).
+  const openAdmin = () => setScreen("admin");
+
+  // Open a library subject — content comes from the backend (RLS-gated).
   const openSubject = async (id) => {
     try {
-      const r = await loadLibrarySubject(id);
+      const r = await getSubjectContent(id);
+      if (!r) return; // locked / not found (the library screen normally prevents this)
       const key = `lib:${id}`;
       const p = readProgress(key);
       setResult(r);
@@ -125,9 +130,10 @@ export default function App() {
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.bg, fontFamily: C.font }}>
-      <TopBar screen={screen} summary={result} fromLibrary={fromLibrary} auth={auth} onHome={home} onReupload={reupload} onBrowse={browse} />
+      <TopBar screen={screen} summary={result} fromLibrary={fromLibrary} auth={auth} onHome={home} onReupload={reupload} onBrowse={browse} onAdmin={openAdmin} />
       {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />}
       {screen === "library" && <LibraryScreen onOpen={openSubject} onUpload={reupload} />}
+      {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
       {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} onDone={onDone} onError={reupload} />}
       {screen === "analysis" && (result
         ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary}

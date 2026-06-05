@@ -38,3 +38,6 @@ export const IconSparkle = ({ s = 18, c = C.primary }) => (
 export const IconLayers = ({ s = 16, c = C.muted }) => (
   <Svg s={s} stroke={c} sw={1.7}><path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" /></Svg>
 );
+export const IconLock = ({ s = 16, c = C.muted }) => (
+  <Svg s={s} stroke={c} sw={1.8}><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.2" /><path d="M8 10.5V7.5a4 4 0 018 0v3" /></Svg>
+);
