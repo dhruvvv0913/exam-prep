@@ -78,7 +78,18 @@ function parseMeta(text) {
     }
   }
   if (!subject) subject = lines.find(looksLikeTitle) || null; // fallback
-  return { examType, session, year, subject, code, fullMarks };
+  return { examType, session, year, subject: cleanSubject(subject), code, fullMarks };
+}
+
+// Tidy a detected subject title: drop leading OCR junk (stray symbols, or a lone
+// "I"/"l"/"1"/"|" left over from a margin mark, e.g. "I ENVIRONMENTAL SCIENCES").
+function cleanSubject(s) {
+  if (!s) return null;
+  return s
+    .replace(/^[^A-Za-z0-9]+/, "")
+    .replace(/^[Il1|0-9]\s+(?=[A-Za-z])/, "")
+    .replace(/\s+/g, " ")
+    .trim() || null;
 }
 
 // ---- question splitting ------------------------------------------------

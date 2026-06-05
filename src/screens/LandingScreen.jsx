@@ -107,8 +107,8 @@ function HandoutsZone({ files, onAdd, onRemove }) {
       style={{ flex: 1, minWidth: 280, background: drag ? hexA(C.primary, 0.05) : "#fff", borderRadius: 18, border: `2px dashed ${drag ? C.primary : (has ? hexA(C.good, 0.45) : "#cfd3e6")}`, padding: 22, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12, boxShadow: has ? C.shadowMd : C.shadowSm }}>
       <input ref={inputRef} type="file" accept={ACCEPT} multiple onChange={pick} style={{ display: "none" }} />
       <div style={{ width: 50, height: 50, borderRadius: 14, background: "#f1f2f8", display: "flex", alignItems: "center", justifyContent: "center" }}><IconUpload s={25} c={C.ink2} /></div>
-      <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Course handouts</div>
-      <Tag tone="muted">optional · improves results</Tag>
+      <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Course slides &amp; handouts</div>
+      <Tag tone="muted">optional · will sharpen grouping (coming soon)</Tag>
       {has
         ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", width: "100%" }}>
             {files.map((f, i) => <FileChip key={f.name + i} name={f.name} onRemove={() => onRemove(i)} />)}

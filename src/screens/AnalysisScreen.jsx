@@ -142,7 +142,7 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
 }
 
 // ---- screen ------------------------------------------------------------
-export default function AnalysisScreen({ data, onGroupsChange, canSave, done, starred, onToggleDone, onToggleStar }) {
+export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibrary, done, starred, onToggleDone, onToggleStar }) {
   const paperCount = data.paperCount;
   const [editing, setEditing] = React.useState(false);
   // collapsed by id; default = the "asked once" groups start collapsed.
@@ -225,7 +225,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, done, st
           <div>
             {subject && <div style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, letterSpacing: 0.3, textTransform: "uppercase", color: C.primary, marginBottom: 4 }}>{subject}</div>}
             <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: isMobile ? 23 : 28, color: C.ink, letterSpacing: -0.3 }}>Important questions</div>
-            <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across your {paperCount} uploaded {paperCount === 1 ? "paper" : "papers"}.</div>
+            <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across {fromLibrary ? `${paperCount} ${paperCount === 1 ? "paper" : "papers"}` : `your ${paperCount} uploaded ${paperCount === 1 ? "paper" : "papers"}`}.</div>
             <div title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 12, color: C.faint, marginTop: 6 }}>Marks are estimated from the standard exam scheme.</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>

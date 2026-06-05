@@ -16,6 +16,7 @@ import { useAuth } from "../auth.jsx";
 
 // Sign-in / account control (hidden until Supabase is configured).
 function Account({ auth }) {
+  const isMobile = useIsMobile();
   if (!auth.enabled) return null;
   if (!auth.user) {
     return (
@@ -25,9 +26,10 @@ function Account({ auth }) {
   const label = auth.user.email || "Account";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span title={label + (auth.isAdmin ? " (admin)" : "")} style={{ fontFamily: C.font, fontSize: 13, color: C.ink2, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {auth.isAdmin ? "★ " : ""}{label}
-      </span>
+      {/* on phones just show ★ (if admin) to save space; full email on desktop */}
+      {isMobile
+        ? (auth.isAdmin ? <span title={label} style={{ color: C.gold, fontSize: 15 }}>★</span> : null)
+        : <span title={label + (auth.isAdmin ? " (admin)" : "")} style={{ fontFamily: C.font, fontSize: 13, color: C.ink2, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auth.isAdmin ? "★ " : ""}{label}</span>}
       <button onClick={auth.signOut} title="Sign out" style={{ fontFamily: C.font, fontSize: 13, fontWeight: 500, padding: "6px 12px", borderRadius: 9, border: `1px solid ${C.line}`, background: "#fff", color: C.ink2, cursor: "pointer" }}>Sign out</button>
     </div>);
 }
@@ -136,7 +138,7 @@ export default function App() {
       {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
       {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} onDone={onDone} onError={reupload} />}
       {screen === "analysis" && (result
-        ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary}
+        ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary} fromLibrary={fromLibrary}
             done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
         : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />)}
     </div>);
