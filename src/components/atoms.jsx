@@ -4,10 +4,10 @@ import { C, hexA } from "../theme.js";
 export function Logo({ onClick }) {
   return (
     <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 10, cursor: onClick ? "pointer" : "default", userSelect: "none" }}>
-      <div style={{ width: 32, height: 32, borderRadius: 9, background: C.primary, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(63,81,196,0.32)" }}>
+      <div style={{ width: 32, height: 32, borderRadius: 9, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: C.gradGlow }}>
         <div style={{ width: 13, height: 13, borderRadius: "50%", background: "#fff" }} />
       </div>
-      <span style={{ fontFamily: C.font, fontWeight: 700, fontSize: 19, letterSpacing: -0.2, color: C.ink }}>PYQ-LY</span>
+      <span style={{ fontFamily: C.font, fontWeight: 700, fontSize: 19, letterSpacing: -0.2, background: C.grad, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>PYQ-LY</span>
     </div>);
 }
 
@@ -41,26 +41,30 @@ export function PrimaryButton({ children, onClick, disabled, glow, w, size = "md
       style={{
         fontFamily: C.font, fontSize: fs, fontWeight: 600, padding: pad, width: w || "auto",
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9,
-        color: "#fff", background: disabled ? "#c2c6dd" : C.primary, border: "none",
+        color: "#fff", background: disabled ? "#c2c6dd" : C.grad, border: "none",
         borderRadius: 12, cursor: disabled ? "not-allowed" : "pointer",
-        boxShadow: disabled ? "none" : "0 8px 22px rgba(63,81,196,0.30)",
-        transition: "transform .12s, box-shadow .2s, background .2s",
+        boxShadow: disabled ? "none" : C.gradGlow,
+        transition: "transform .14s ease, box-shadow .2s, filter .2s",
         ...(glow && !disabled ? { animation: "glow 1.9s ease-in-out infinite" } : {}),
       }}
+      onMouseEnter={(e) => { if (!disabled) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.filter = "brightness(1.05)"; } }}
       onMouseDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.97)"; }}
-      onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
+      onMouseUp={(e) => { if (!disabled) e.currentTarget.style.transform = "translateY(-1px)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.filter = "none"; }}>
       {children}
     </button>);
 }
 
 export function GhostButton({ children, onClick }) {
   return (
-    <button onClick={onClick} style={{
-      fontFamily: C.font, fontSize: 14, fontWeight: 500, padding: "9px 18px",
-      color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 11,
-      cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, boxShadow: C.shadowSm,
-    }}>{children}</button>);
+    <button onClick={onClick}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.borderColor = hexA(C.primary, 0.45); e.currentTarget.style.boxShadow = C.shadowMd; e.currentTarget.style.color = C.primary; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = C.line; e.currentTarget.style.boxShadow = C.shadowSm; e.currentTarget.style.color = C.ink2; }}
+      style={{
+        fontFamily: C.font, fontSize: 14, fontWeight: 500, padding: "9px 18px",
+        color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 11,
+        cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, boxShadow: C.shadowSm,
+      }}>{children}</button>);
 }
 
 // soft drifting background field

@@ -34,6 +34,17 @@ function Account({ auth }) {
     </div>);
 }
 
+// Slow-drifting colored blobs behind everything (subtle, GPU-friendly).
+function AuroraBg() {
+  const blob = (s) => <div style={{ position: "absolute", borderRadius: "50%", filter: "blur(64px)", ...s }} />;
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+      {blob({ width: 440, height: 440, top: -140, left: -90, background: "radial-gradient(circle, rgba(99,110,240,0.40), transparent 70%)", animation: "aurora1 19s ease-in-out infinite" })}
+      {blob({ width: 400, height: 400, top: -70, right: -110, background: "radial-gradient(circle, rgba(138,108,224,0.36), transparent 70%)", animation: "aurora2 23s ease-in-out infinite" })}
+      {blob({ width: 380, height: 380, bottom: -160, left: "32%", background: "radial-gradient(circle, rgba(91,108,240,0.28), transparent 70%)", animation: "aurora3 27s ease-in-out infinite" })}
+    </div>);
+}
+
 // ======================================================================
 // TOP BAR
 // ======================================================================
@@ -131,15 +142,18 @@ export default function App() {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.bg, fontFamily: C.font }}>
+    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.bgMesh, fontFamily: C.font }}>
+      <AuroraBg />
       <TopBar screen={screen} summary={result} fromLibrary={fromLibrary} auth={auth} onHome={home} onReupload={reupload} onBrowse={browse} onAdmin={openAdmin} />
-      {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />}
-      {screen === "library" && <LibraryScreen onOpen={openSubject} onUpload={reupload} />}
-      {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
-      {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} onDone={onDone} onError={reupload} />}
-      {screen === "analysis" && (result
-        ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary} fromLibrary={fromLibrary}
-            done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
-        : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />)}
+      <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />}
+        {screen === "library" && <LibraryScreen onOpen={openSubject} onUpload={reupload} />}
+        {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
+        {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} onDone={onDone} onError={reupload} />}
+        {screen === "analysis" && (result
+          ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary} fromLibrary={fromLibrary}
+              done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
+          : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />)}
+      </div>
     </div>);
 }

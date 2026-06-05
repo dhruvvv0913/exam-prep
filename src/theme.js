@@ -22,6 +22,12 @@ export const C = {
   shadowMd: "0 4px 14px rgba(25,28,51,0.07), 0 10px 30px rgba(25,28,51,0.06)",
   shadowLg: "0 18px 50px rgba(25,28,51,0.16)",
   font: "'Poppins', system-ui, -apple-system, sans-serif",
+  // modern/vibrant accents
+  violet: "#7a5cd8",
+  grad: "linear-gradient(135deg, #5b6cf0 0%, #3f51c4 56%, #7a5cd8 100%)",
+  gradGlow: "0 10px 26px rgba(76,70,196,0.34)",
+  // soft colored mesh behind the whole app
+  bgMesh: "radial-gradient(820px 460px at 10% -8%, rgba(99,110,240,0.13), transparent 60%), radial-gradient(760px 480px at 100% -2%, rgba(138,108,224,0.12), transparent 55%), radial-gradient(700px 600px at 50% 115%, rgba(99,110,240,0.08), transparent 60%), #edeffa",
 };
 
 export function hexA(hex, a) {

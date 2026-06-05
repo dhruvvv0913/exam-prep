@@ -9,7 +9,7 @@ import { useIsMobile } from "../useIsMobile.js";
 import { useAuth } from "../auth.jsx";
 import { listSubjects, myEntitlements } from "../engine/libraryDb.js";
 
-function SubjectCard({ s, locked, onClick }) {
+function SubjectCard({ s, locked, onClick, index = 0 }) {
   const [hover, setHover] = React.useState(false);
   return (
     <div onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
@@ -18,14 +18,15 @@ function SubjectCard({ s, locked, onClick }) {
         padding: 20, cursor: "pointer", boxShadow: hover ? "0 8px 24px rgba(63,81,196,0.14)" : C.shadowSm,
         transition: "border-color .15s, box-shadow .15s, transform .15s", transform: hover ? "translateY(-2px)" : "none",
         display: "flex", flexDirection: "column", gap: 12, minWidth: 0, opacity: locked ? 0.92 : 1,
+        animation: "rise .45s ease backwards", animationDelay: `${Math.min(index * 0.05, 0.4)}s`,
       }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink, lineHeight: 1.3, textWrap: "pretty" }}>{s.subject}</div>
           {s.code && <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, marginTop: 2 }}>{s.code}</div>}
         </div>
-        <div style={{ width: 38, height: 38, flex: "0 0 auto", borderRadius: 11, background: locked ? "#f1f2f8" : C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {locked ? <IconLock s={18} c={C.muted} /> : <IconLayers s={18} c={C.primary} />}
+        <div style={{ width: 38, height: 38, flex: "0 0 auto", borderRadius: 11, background: locked ? "#f1f2f8" : C.grad, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: locked ? "none" : C.gradGlow }}>
+          {locked ? <IconLock s={18} c={C.muted} /> : <IconLayers s={18} c="#fff" />}
         </div>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
@@ -96,7 +97,7 @@ export default function LibraryScreen({ onOpen, onUpload }) {
       <div style={{ position: "relative", zIndex: 1, maxWidth: 940, margin: "0 auto", padding: isMobile ? "34px 18px 48px" : "48px 32px 60px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 26 }}>
           <div>
-            <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: isMobile ? 28 : 38, color: C.ink, letterSpacing: -0.5, margin: 0 }}>Subject library</h1>
+            <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: isMobile ? 28 : 38, letterSpacing: -0.5, margin: 0, background: C.grad, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Subject library</h1>
             <p style={{ fontFamily: C.font, fontSize: isMobile ? 14.5 : 16, color: C.muted, margin: "10px 0 0", maxWidth: 460, lineHeight: 1.5 }}>
               Curated, high-accuracy subjects — open one to see its important, repeated questions.
             </p>
@@ -111,7 +112,7 @@ export default function LibraryScreen({ onOpen, onUpload }) {
                 No subjects published yet.<br /><span style={{ fontSize: 13.5, color: C.faint }}>{auth.isAdmin ? "Upload papers and use “Publish to library” to add one." : "Check back soon."}</span>
               </div>
             : <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-                {subjects.map((s) => <SubjectCard key={s.id} s={s} locked={!isOpen(s)} onClick={() => handle(s)} />)}
+                {subjects.map((s, i) => <SubjectCard key={s.id} s={s} index={i} locked={!isOpen(s)} onClick={() => handle(s)} />)}
               </div>}
       </div>
 

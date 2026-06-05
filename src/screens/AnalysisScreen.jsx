@@ -92,13 +92,17 @@ function ToggleChip({ active, onClick, children }) {
 function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone }) {
   const unique = cluster.unique;
   const isMobile = useIsMobile();
+  const delay = Math.min((rank || 0) * 0.035, 0.45);
   return (
-    <div style={{ background: "#fff", borderRadius: 16, border: `1px solid ${C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${C.line}`, boxShadow: C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s" }}>
+    <div
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = C.shadowMd; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = C.shadowSm; }}
+      style={{ background: "#fff", borderRadius: 16, border: `1px solid ${C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${C.line}`, boxShadow: C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s", animation: "rise .4s ease backwards", animationDelay: `${delay}s` }}>
       {/* header (click anywhere to collapse/expand) */}
       <div onClick={onToggle} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
         <div style={{
           width: 30, height: 30, flex: "0 0 auto", borderRadius: "50%", marginTop: 1,
-          background: unique ? "#f1f2f8" : (rank === 1 ? C.primary : C.primarySoft),
+          background: unique ? "#f1f2f8" : (rank === 1 ? C.grad : C.primarySoft),
           color: unique ? C.faint : (rank === 1 ? "#fff" : C.primary),
           display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: C.font, fontWeight: 700, fontSize: 13.5,

@@ -137,11 +137,17 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
           <span style={{ fontFamily: C.font, fontSize: 13, fontWeight: 500, color: C.ink2 }}>Find the questions that actually repeat</span>
         </div>
         <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: isMobile ? 32 : 46, lineHeight: 1.08, textAlign: "center", color: C.ink, letterSpacing: -1, margin: 0 }}>
-          Upload. Learn.<br />Ace the exam.
+          Upload. Learn.<br /><span style={{ background: C.grad, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Ace the exam.</span>
         </h1>
-        <p style={{ fontFamily: C.font, fontSize: isMobile ? 15 : 17, lineHeight: 1.55, color: C.muted, textAlign: "center", maxWidth: 470, margin: "16px 0 38px", textWrap: "pretty" }}>
+        <p style={{ fontFamily: C.font, fontSize: isMobile ? 15 : 17, lineHeight: 1.55, color: C.muted, textAlign: "center", maxWidth: 470, margin: "16px 0 20px", textWrap: "pretty" }}>
           Drop in your past exam papers and we'll surface the questions that come back year after year — ranked by how often they repeat.
         </p>
+        <div style={{ display: "flex", gap: 9, flexWrap: "wrap", justifyContent: "center", marginBottom: 34 }}>
+          {["100% free", "No sign-up to start", "Runs in your browser"].map((t) => (
+            <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, background: "#fff", border: `1px solid ${C.line}`, boxShadow: C.shadowSm, fontFamily: C.font, fontSize: 12.5, fontWeight: 500, color: C.ink2 }}>
+              <IconCheck s={11} c={C.good} sw={2.8} /> {t}
+            </span>))}
+        </div>
 
         <div style={{ display: "flex", gap: 20, width: "100%", marginBottom: 30, alignItems: "flex-start", flexWrap: "wrap" }}>
           <PapersZone papers={papers} setPapers={setPapers} />
