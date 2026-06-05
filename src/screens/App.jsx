@@ -149,7 +149,7 @@ export default function App() {
         {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />}
         {screen === "library" && <LibraryScreen onOpen={openSubject} onUpload={reupload} />}
         {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
-        {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} onDone={onDone} onError={reupload} />}
+        {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} onDone={onDone} onError={reupload} />}
         {screen === "analysis" && (result
           ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary} fromLibrary={fromLibrary}
               done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />

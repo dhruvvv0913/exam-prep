@@ -39,10 +39,12 @@ export function topicLabel(items) {
 const representative = (items) => items.slice().sort((a, b) => b.text.length - a.text.length)[0];
 
 // Raw clusters (with embedding vecs) -> serializable, editable groups.
+// Slide-anchored clusters carry a real `topic` name (from the slides); for
+// bottom-up clusters we synthesise a label from the questions themselves.
 export function groupsFromClusters(clusters) {
   return clusters.map((c, i) => ({
     id: `g${i}`,
-    topic: topicLabel(c.items),
+    topic: c.topic || topicLabel(c.items),
     items: c.items.map((it) => ({
       uid: `${it.pIdx ?? 0}__${it.id}`, // stable per-question identity for editing
       pIdx: it.pIdx ?? 0, // which uploaded paper it came from (for the "appears" count)

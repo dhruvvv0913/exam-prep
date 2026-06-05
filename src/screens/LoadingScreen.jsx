@@ -26,18 +26,31 @@ function StepIcon({ state }) {
   return <div style={{ width: 26, height: 26, borderRadius: "50%", border: `2px solid #d3d6e6`, flex: "0 0 auto" }} />;
 }
 
-// Map a pipeline progress event to a step index + short note.
-const STAGE_STEP = { reading: 0, ocr: 0, extracted: 1, clustering: 2, ranking: 3 };
+export default function LoadingScreen({ papers, slides, onDone, onError }) {
+  const hasSlides = !!(slides && slides.length);
+  // With slides we group AGAINST their topics, so the steps differ.
+  const stepDefs = hasSlides
+    ? [
+        { label: "Reading your papers" },
+        { label: "Extracting questions" },
+        { label: "Reading your slides" },
+        { label: "Grouping by slide topic" },
+        { label: "Ranking by importance" },
+      ]
+    : [
+        { label: "Reading your papers" },
+        { label: "Extracting questions" },
+        { label: "Grouping similar questions" },
+        { label: "Ranking by importance" },
+      ];
+  // Map a pipeline progress event to a step index.
+  const STAGE_STEP = hasSlides
+    ? { reading: 0, ocr: 0, extracted: 1, slides: 2, topics: 3, clustering: 3, ranking: 4 }
+    : { reading: 0, ocr: 0, extracted: 1, clustering: 2, ranking: 3 };
+  const GROUP_STEP = hasSlides ? 3 : 2;
 
-export default function LoadingScreen({ papers, onDone, onError }) {
-  const stepDefs = [
-    { label: "Reading your papers" },
-    { label: "Extracting questions" },
-    { label: "Grouping similar questions" },
-    { label: "Ranking by importance" },
-  ];
   const [active, setActive] = React.useState(0);
-  const [notes, setNotes] = React.useState(["", "", "", ""]);
+  const [notes, setNotes] = React.useState(() => stepDefs.map(() => ""));
   const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
@@ -45,6 +58,7 @@ export default function LoadingScreen({ papers, onDone, onError }) {
     const setNote = (i, text) => setNotes((n) => { const c = n.slice(); c[i] = text; return c; });
 
     analyze(papers, {
+      slideFiles: hasSlides ? slides : undefined,
       onProgress: (p) => {
         if (cancelled) return;
         const step = STAGE_STEP[p.stage] ?? 0;
@@ -52,7 +66,9 @@ export default function LoadingScreen({ papers, onDone, onError }) {
         if (p.stage === "reading") setNote(0, `${p.index + 1} of ${p.total}`);
         else if (p.stage === "ocr") setNote(0, `scanning page ${p.done}/${p.total}…`);
         else if (p.stage === "extracted") setNote(1, `${p.questions} found`);
-        else if (p.stage === "clustering") setNote(2, "grouping…");
+        else if (p.stage === "slides") setNote(2, `${p.index + 1} of ${p.total}`);
+        else if (p.stage === "topics") setNote(3, `${p.topics} topic${p.topics === 1 ? "" : "s"} found`);
+        else if (p.stage === "clustering") setNote(GROUP_STEP, p.anchored ? "matching to topics…" : "grouping…");
       },
     })
       .then((result) => {

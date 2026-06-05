@@ -108,12 +108,12 @@ function HandoutsZone({ files, onAdd, onRemove }) {
       <input ref={inputRef} type="file" accept={ACCEPT} multiple onChange={pick} style={{ display: "none" }} />
       <div style={{ width: 50, height: 50, borderRadius: 14, background: "#f1f2f8", display: "flex", alignItems: "center", justifyContent: "center" }}><IconUpload s={25} c={C.ink2} /></div>
       <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Course slides &amp; handouts</div>
-      <Tag tone="muted">optional · will sharpen grouping (coming soon)</Tag>
+      <Tag tone="good">optional · groups by your real slide topics</Tag>
       {has
         ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", width: "100%" }}>
             {files.map((f, i) => <FileChip key={f.name + i} name={f.name} onRemove={() => onRemove(i)} />)}
           </div>
-        : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted }}>Drag &amp; drop PDFs or screenshots here</div>}
+        : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>Drop your lecture slide PDFs here.<br /><span style={{ fontSize: 12.5, color: C.faint }}>We read the slide titles and group questions under them</span></div>}
       <button onClick={() => inputRef.current?.click()} style={{ fontFamily: C.font, fontSize: 13.5, fontWeight: 600, padding: "9px 18px", borderRadius: 10, cursor: "pointer", color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, display: "inline-flex", alignItems: "center", gap: 6 }}>
         {has ? <React.Fragment><IconPlus s={14} c={C.ink2} /> Add more</React.Fragment> : "Browse files"}
       </button>

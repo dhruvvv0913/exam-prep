@@ -110,3 +110,54 @@ export async function clusterQuestions(items, opts = {}) {
   const vecs = await embed(items.map((q) => q.text), opts);
   return clusterVectors(items, vecs, opts);
 }
+
+// ---- slide-anchored grouping (strict) ----------------------------------
+//
+// When the user supplies course slides we have a real topic taxonomy to group
+// AGAINST, instead of discovering clusters bottom-up. Strict mode assigns every
+// question to its single nearest slide topic; a question whose best match is
+// below `floor` (it isn't really on any slide) goes to one "Not on slides"
+// bucket rather than being forced into an unrelated topic.
+//
+// Pure given precomputed vectors. Returns clusters [{ topic, items }] (only the
+// non-empty ones), largest-first, with the "Not on slides" bucket always last.
+//
+// Each question is matched to its nearest slide TITLE (precise), but grouped
+// under that title's `deckOf` label when provided — so a topic that spans many
+// slide titles ("Addressing Modes") aggregates into ONE group instead of
+// scattering. Without `deckOf` it groups per title (back-compat).
+//
+// `floor` is calibrated for bge-small CLS cosines, whose short-text similarities
+// bunch up around 0.65–0.80: on real COA papers, correct topic matches scored
+// ≥0.73 while questions with no matching slide peaked at ~0.69, so 0.70 cleanly
+// routes off-syllabus questions to "Not on slides" instead of forcing a weak
+// match. The admin merge/split/rename step then fixes any borderline calls.
+export function anchorVectors(items, qVecs, topics, topicVecs, { floor = 0.70, deckOf = null } = {}) {
+  const labelOf = (j) => (deckOf ? deckOf[j] : topics[j]);
+  const buckets = new Map(); // label -> { topic, items }
+  const leftover = [];
+  items.forEach((item, i) => {
+    let bestJ = -1, best = -Infinity;
+    for (let j = 0; j < topicVecs.length; j++) {
+      const s = dot(qVecs[i], topicVecs[j]);
+      if (s > best) { best = s; bestJ = j; }
+    }
+    if (bestJ >= 0 && best >= floor) {
+      const lab = labelOf(bestJ);
+      if (!buckets.has(lab)) buckets.set(lab, { topic: lab, items: [] });
+      buckets.get(lab).items.push(item);
+    } else {
+      leftover.push(item);
+    }
+  });
+  const groups = [...buckets.values()].sort((a, b) => b.items.length - a.items.length);
+  if (leftover.length) groups.push({ topic: "Not on slides", items: leftover });
+  return groups;
+}
+
+// topics: [string]   items: [{ id, text, ... }]   opts.deckOf: parallel labels
+export async function anchorQuestions(items, topics, opts = {}) {
+  const qVecs = await embed(items.map((q) => q.text), opts);
+  const topicVecs = await embed(topics, opts);
+  return anchorVectors(items, qVecs, topics, topicVecs, opts);
+}

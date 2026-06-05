@@ -125,14 +125,21 @@ export function splitQuestions(text) {
   let cur = null;
   let curNum = null;
   let lastPart = null; // last part letter seen under curNum
+  // "Answer all the questions" / "Answer any two of the following" are exam
+  // instructions that ride in as a question stem (e.g. "1. Answer the following
+  // questions") — not real content.
+  const isInstruction = (t) => /^answer\s+(all|any|the\s+following)\b/i.test(t);
   const flush = () => {
-    if (cur && cleanText(cur.text).length > 8) {
-      cur.text = cleanText(cur.text);
-      let id = `q${cur.num}${cur.part || ""}`;
-      while (seen.has(id)) id += "_"; // guarantee uniqueness
-      seen.add(id);
-      cur.id = id;
-      out.push(cur);
+    if (cur) {
+      const text = cleanText(cur.text);
+      if (text.length > 8 && !isInstruction(text)) {
+        cur.text = text;
+        let id = `q${cur.num}${cur.part || ""}`;
+        while (seen.has(id)) id += "_"; // guarantee uniqueness
+        seen.add(id);
+        cur.id = id;
+        out.push(cur);
+      }
     }
     cur = null;
   };

@@ -29,6 +29,9 @@ eng.traineddata
 # Dev OCR cache from scripts/test-eod.mjs
 scripts/eod-items.json
 
+# Generated grouping output from scripts/llm-group.mjs
+scripts/*.out.json
+
 # Local environment (Supabase keys etc.)
 .env
 .env.local

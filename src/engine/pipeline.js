@@ -6,7 +6,8 @@
 import { extractText } from "./extractText.js";
 import { ocrImage } from "./ocr.js";
 import { parsePaper } from "./parsePaper.js";
-import { clusterQuestions } from "./cluster.js";
+import { clusterQuestions, anchorQuestions } from "./cluster.js";
+import { extractDeckTopics, deckLabel } from "./slides.js";
 import { groupsFromClusters } from "./rank.js";
 
 async function readPage(file, onProgress) {
@@ -22,7 +23,7 @@ async function readPage(file, onProgress) {
   return { text: await ocrImage(file), ocr: true };
 }
 
-export async function analyze(paperFiles, { onProgress } = {}) {
+export async function analyze(paperFiles, { onProgress, slideFiles } = {}) {
   const items = [];
   const papers = [];
 
@@ -52,10 +53,34 @@ export async function analyze(paperFiles, { onProgress } = {}) {
     onProgress?.({ stage: "extracted", index: i, total: paperFiles.length, questions: items.length });
   }
 
-  onProgress?.({ stage: "clustering", questions: items.length });
+  // Optional: read course slides and extract a deck-level topic taxonomy to
+  // group against. Each slide deck (PDF) becomes one coarse topic, labelled from
+  // its filename; per-slide titles are the precise match targets. extractText
+  // separates a PDF's pages with a blank line, so split on that for slides.
+  let topics = [];
+  let deckOf = null;
+  let topicCount = 0;
+  if (slideFiles && slideFiles.length) {
+    const decks = [];
+    for (let i = 0; i < slideFiles.length; i++) {
+      onProgress?.({ stage: "slides", index: i, total: slideFiles.length, paper: slideFiles[i]?.name });
+      try {
+        const { text } = await readPage(slideFiles[i], onProgress);
+        const slides = text.split(/\n\s*\n/).filter((c) => c.trim());
+        decks.push({ label: deckLabel(slideFiles[i]?.name || `Deck ${i + 1}`), slides });
+      } catch (e) {
+        throw new Error(`Reading slide deck ${i + 1} failed: ${e.message}`);
+      }
+    }
+    ({ titles: topics, deckOf } = extractDeckTopics(decks));
+    topicCount = new Set(deckOf).size;
+    onProgress?.({ stage: "topics", topics: topicCount });
+  }
+
+  onProgress?.({ stage: "clustering", questions: items.length, anchored: topics.length > 0 });
   let clusters;
   try {
-    clusters = await clusterQuestions(items);
+    clusters = topics.length ? await anchorQuestions(items, topics, { deckOf }) : await clusterQuestions(items);
   } catch (e) {
     throw new Error(`Grouping (AI model) failed: ${e.message}`);
   }
@@ -68,5 +93,6 @@ export async function analyze(paperFiles, { onProgress } = {}) {
     groups,
     questionCount: items.length,
     paperCount: paperFiles.length,
+    topicCount,
   };
 }
