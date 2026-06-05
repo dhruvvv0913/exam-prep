@@ -32,13 +32,13 @@ node --env-file=.env scripts/llm-group.mjs --manifest=samples/coa_sample
 node --env-file=.env scripts/llm-group.mjs <slides...> -- <papers...> [--provider=gemini] [--model=...] [--out=...]
 ```
 
-Sample papers are in the user's `~/Downloads/` (see `samples/exam_papers`).
+The real sample PDFs live in the user's `~/Downloads/`; `samples/{coa_sample,eod_sample,exam_papers}` are manifest files listing them per subject (papers, then slide decks). `llm-group.mjs` can read one directly via `--manifest=samples/coa_sample`.
 
 ## Architecture
 
 **PYQ-LY** is a React + Vite SPA that helps college students find the important, repeated questions in past exam papers, grouped by concept and ranked by how often they recur. See `memory/` for the product vision and the agreed technical decisions.
 
-### Analysis engine (`src/engine/`) — runs 100% in the browser, free, no backend
+### Analysis engine (`src/engine/`) — runs 100% in the browser, free (Supabase backs only auth + the saved library, never the analysis)
 
 Wired into the UI ([pipeline.js](src/engine/pipeline.js) orchestrates files → ranked results; screens consume it). **Everything is self-hosted in `public/`** — the embedding model (`public/models/`), the ONNX-runtime WASM (`public/ort/`), and the OCR worker/core/lang (`public/tesseract/`) — with **no external CDN calls**, because the target users are on a locked-down campus network that intercepts CDN requests and returns HTML (which broke JSON parsing). `cluster.js` sets `env.allowRemoteModels=false`, local paths, `numThreads=1`, and `useBrowserCache=false` (a failed run had cached an HTML error page that replayed forever). `vite.config.js` has an `asset-404` plugin so missing files under `/models|/ort|/tesseract` return 404 instead of the SPA `index.html` fallback (transformers probes optional files; HTML responses crash it). Note: the `scripts/*.mjs` Node harnesses override `env.localModelPath="./public/models/"` (or set `allowRemoteModels=true`) since the browser paths don't resolve in Node. Pipeline:
 
@@ -56,27 +56,46 @@ Wired into the UI ([pipeline.js](src/engine/pipeline.js) orchestrates files → 
 
 Keep `parsePaper`, `textQuality`, `cluster`, `rank`, `slides` as pure/Node-safe modules (no DOM/pdfjs) so the `scripts/` harnesses can test them; browser-only bits live in `extractText`/`ocr`.
 
-### Current prototype UI — all question data is hardcoded in `src/data/clusters.js`.
-
 ### Screen state machine (`src/screens/App.jsx`)
 
-The app is a three-screen linear flow managed in `App` with a `screen` state value:
+`App` manages a `screen` value across five screens (the old hardcoded-prototype flow is gone — analysis is real now):
 
 ```
-landing  →  loading  →  analysis
+landing → loading → analysis        (self-upload)
+library → analysis                  (open a published subject)
+admin                               (admin-only)
 ```
 
-- `landing`: user uploads PDFs (names only, no actual parsing) and optionally handouts
-- `loading`: fake 3.5s animated progress that simulates analysis, then auto-advances
-- `analysis`: shows ranked question clusters from hardcoded data
+- `landing` ([LandingScreen.jsx](src/screens/LandingScreen.jsx)) — upload past-paper PDFs/images (multi-page papers supported) + optional **course slides**; "Start" → loading.
+- `loading` ([LoadingScreen.jsx](src/screens/LoadingScreen.jsx)) — runs the **real** `pipeline.analyze(papers, { slideFiles })` with live stage progress (not a fake timer), then → analysis.
+- `analysis` ([AnalysisScreen.jsx](src/screens/AnalysisScreen.jsx)) — `summarize()`d groups as collapsible topic cards, study progress, search + Starred/Hide-done/Expand chips. Admins also get **Publish to library**; "Edit groups" opens the review screen.
+- `library` ([LibraryScreen.jsx](src/screens/LibraryScreen.jsx)) — browse published subjects from Supabase; opening one (free/entitled/admin) → analysis, else a paywall.
+- `admin` ([AdminScreen.jsx](src/screens/AdminScreen.jsx), admin-only) — manage subjects + grant/revoke per-email access.
+- The review step is not its own `screen` value — [ReviewScreen.jsx](src/screens/ReviewScreen.jsx) renders within analysis ("Edit groups") and edits `groups` directly: merge/split/rename/delete via one "move question to → group / new group" primitive; `onGroupsChange` persists. This is the guaranteed-accuracy step over imperfect auto-grouping.
 
-State (`screen`, `papers`, `handouts`) is persisted to `localStorage` under the key `"pyqly-proto-v1"`.
+Persistence (`localStorage`): `"pyqly-proto-v1"` → `{ screen, result, progressKey }`; `"pyqly-progress"` → per-bucket `{ done, starred }` keyed `lib:<id>` (a library subject) vs `upload` (a fresh self-upload). Uploaded `File`s are not persisted. (`src/data/clusters.js` is dead prototype data — nothing imports it; ignore it.)
 
-### Data (`src/data/clusters.js`)
+### Backend, auth & the curated library (Supabase)
 
-All question content is static. `Q` is a flat map of cluster objects keyed by id. `MODES` maps the three toggle values (`"5"`, `"1"`, `"combined"`) to their ranked/unique cluster id lists. `DEFAULT_DONE` and `DEFAULT_STAR` seed the initial done/starred state.
+Supabase backs **only** auth + the saved library, never the analysis; it degrades gracefully when unconfigured.
 
-To add or change questions, edit `Q` and update the `MODES` arrays accordingly.
+- [supabase.js](src/lib/supabase.js) — client from `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`; `supabaseEnabled` is false (auth/library quietly hidden) when those are unset.
+- [auth.jsx](src/auth.jsx) — `AuthProvider`/`useAuth`: Google OAuth; `isAdmin` = signed-in email === `VITE_ADMIN_EMAIL`.
+- [libraryDb.js](src/engine/libraryDb.js) — all queries. Three RLS-protected tables: `subjects` (public metadata), `subject_content` (the `groups`; served only if free/entitled/admin), `entitlements` (admin-granted `(email, subject_id)`). Writes are admin-only via RLS `is_admin()`; **paid content is enforced server-side, never client-side**.
+- The **anon** key is public/safe to ship; the **service_role** key (local scripts only) bypasses RLS and must never be committed (`.env` is gitignored). Env vars are documented in `.env.example`.
+
+### Building a curated library (admin workflow)
+
+Two ways to produce a subject's `groups`, then publish:
+
+1. **In-browser** — analyze on the landing screen, then (as admin) **Publish to library** on the analysis screen (`publishSubject()`).
+2. **Higher-accuracy, offline** (recommended for curated content) — `scripts/llm-group.mjs` parses papers + slides with the real engine, then asks an LLM (free Gemini by default) to group them with clean labels → `scripts/llm-groups.out.json` (gitignored); `scripts/publish-library.mjs --id=… --subject="…"` upserts it into Supabase (needs the service_role key locally). Then refine in the in-app review screen.
+
+The LLM pass clearly beats in-browser embedding grouping (correct chapter per question, no off-syllabus dumping) and, being admin-side, stays free + campus-safe for students. See `memory/slide-anchored-grouping`.
+
+### Deployment
+
+Static **Vercel** deploy, auto-deploys on push to `main`. Use the stable production alias, not the per-deploy hash URLs. Newly published library subjects appear immediately (read from Supabase) without a redeploy.
 
 ### Styling
 
@@ -92,6 +111,6 @@ Do not introduce a CSS file or external styling library; keep new styles inline 
 
 ### Key patterns
 
-- `AnalysisScreen` owns `doneSet` and `starSet` as `Set` state; toggling uses a generic `toggle(setter)(id)` helper that clones the Set.
-- Hovering a `RankRow` for 1.6 s opens its `SidePanel` (via `setTimeout`); clicking opens it immediately.
-- The `SidePanel` is an absolutely-positioned overlay inside the analysis scroll container, not a portal.
+- `done`/`starred` progress is owned by `App` (as `Set`s, persisted per progress bucket) and passed into `AnalysisScreen`; toggling clones the Set via a `toggleIn(setter)(id)` helper.
+- `AnalysisScreen` renders groups as collapsible `GroupCard`s (topic header + question list); ranking and labels come from `summarize()`. The admin-only `PublishModal` saves the current groups as a library subject.
+- Background visuals are decorative only: `AuroraBg` (in `App`) and `FloatField` (atoms) sit behind content at a lower `zIndex`.
