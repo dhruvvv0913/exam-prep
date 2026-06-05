@@ -4,7 +4,7 @@
 // screen ("Edit groups") edits those groups directly.
 import React from "react";
 import { C } from "../theme.js";
-import { IconStar, IconCheck, IconChevron, IconLayers } from "../components/icons.jsx";
+import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload } from "../components/icons.jsx";
 import { Tag, HeatBar, GhostButton } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { summarize } from "../engine/rank.js";
@@ -93,7 +93,7 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
 }
 
 // ---- screen ------------------------------------------------------------
-export default function AnalysisScreen({ data, onGroupsChange, done, starred, onToggleDone, onToggleStar }) {
+export default function AnalysisScreen({ data, onGroupsChange, canSave, done, starred, onToggleDone, onToggleStar }) {
   const paperCount = data.paperCount;
   const [editing, setEditing] = React.useState(false);
   // collapsed by id; default = the "asked once" groups start collapsed.
@@ -159,6 +159,16 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
   const uniqueF = unique.filter(match);
   const noteStyle = { fontFamily: C.font, fontSize: 14, color: C.muted, padding: "4px 4px" };
 
+  // Admin only: export this analysis as a library subject JSON (to bundle/ship).
+  const saveToLibrary = () => {
+    const slug = (subject || "subject").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "subject";
+    const payload = { papers: data.papers, groups: data.groups, questionCount: data.questionCount, paperCount: data.paperCount };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `${slug}.json`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 1040, margin: "0 auto", padding: isMobile ? "24px 16px 48px" : "34px 32px 60px" }}>
@@ -172,6 +182,7 @@ export default function AnalysisScreen({ data, onGroupsChange, done, starred, on
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
             <GhostButton onClick={() => setEditing(true)}><IconLayers s={15} c={C.ink2} /> Edit groups</GhostButton>
+            {canSave && <GhostButton onClick={saveToLibrary}><IconUpload s={15} c={C.ink2} /> Save to library</GhostButton>}
           </div>
         </div>
 

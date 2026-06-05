@@ -28,3 +28,7 @@ eng.traineddata
 
 # Dev OCR cache from scripts/test-eod.mjs
 scripts/eod-items.json
+
+# Local environment (Supabase keys etc.)
+.env
+.env.local

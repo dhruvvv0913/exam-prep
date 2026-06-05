@@ -23,8 +23,8 @@ export const IconChevron = ({ s = 16, c = C.muted, dir = "down" }) => (
   <Svg s={s} stroke={c} sw={2} style={{ transform: dir === "up" ? "rotate(180deg)" : "none", transition: "transform .18s" }}>
     <path d="M6 9l6 6 6-6" /></Svg>
 );
-export const IconArrow = ({ s = 18, c = "#fff" }) => (
-  <Svg s={s} stroke={c} sw={2}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></Svg>
+export const IconArrow = ({ s = 18, c = "#fff", dir = "right" }) => (
+  <Svg s={s} stroke={c} sw={2} style={{ transform: dir === "left" ? "rotate(180deg)" : "none" }}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></Svg>
 );
 export const IconClose = ({ s = 18, c = C.muted }) => (
   <Svg s={s} stroke={c} sw={2}><path d="M6 6l12 12M18 6L6 18" /></Svg>

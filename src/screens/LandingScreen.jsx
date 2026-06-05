@@ -120,7 +120,7 @@ function HandoutsZone({ files, onAdd, onRemove }) {
     </div>);
 }
 
-export default function LandingScreen({ papers, handouts, setPapers, setHandouts, onStart }) {
+export default function LandingScreen({ papers, handouts, setPapers, setHandouts, onStart, onBrowse }) {
   const isMobile = useIsMobile();
   const ready = papers.length > 0;
   const pageCount = papers.reduce((n, p) => n + p.pages.length, 0) + handouts.length;
@@ -154,6 +154,11 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
         <div style={{ fontFamily: C.font, fontSize: 13, color: C.faint, marginTop: 14, minHeight: 18 }}>
           {ready ? `${papers.length} paper${papers.length > 1 ? "s" : ""} · ${pageCount} file${pageCount > 1 ? "s" : ""} ready — we'll analyse next` : "Add at least one past paper to begin"}
         </div>
+        {onBrowse && (
+          <button onClick={onBrowse} style={{ marginTop: 18, fontFamily: C.font, fontSize: 14, fontWeight: 500, color: C.primary, background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            or browse the subject library <IconArrow s={16} c={C.primary} />
+          </button>
+        )}
       </div>
     </div>);
 }
