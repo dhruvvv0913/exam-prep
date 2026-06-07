@@ -3,11 +3,11 @@
 // Data is derived from the editable groups (rank.summarize); the admin review
 // screen ("Edit groups") edits those groups directly.
 import React from "react";
-import { C } from "../theme.js";
-import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose } from "../components/icons.jsx";
+import { C, hexA } from "../theme.js";
+import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose, IconFile } from "../components/icons.jsx";
 import { Tag, HeatBar, GhostButton, PrimaryButton } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
-import { summarize } from "../engine/rank.js";
+import { summarize, byPaper } from "../engine/rank.js";
 import { publishSubject } from "../engine/libraryDb.js";
 import ReviewScreen from "./ReviewScreen.jsx";
 
@@ -88,16 +88,29 @@ function ToggleChip({ active, onClick, children }) {
     }}>{children}</button>);
 }
 
+// A small clickable chip linking a question to the "other" view (paper⇄topic).
+function LinkChip({ children, title, onClick, tone = "muted" }) {
+  const c = tone === "primary" ? { bg: C.primarySoft, fg: C.primary } : { bg: "#f1f2f8", fg: C.muted };
+  return (
+    <button onClick={(e) => { e.stopPropagation(); onClick(); }} title={title}
+      onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(0.96)"; e.currentTarget.style.textDecoration = "underline"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.filter = "none"; e.currentTarget.style.textDecoration = "none"; }}
+      style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: c.fg, whiteSpace: "nowrap", padding: "3px 8px", background: c.bg, border: "none", borderRadius: 7, flex: "0 0 auto", marginTop: 1, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+      {children}
+    </button>);
+}
+
 // ---- one group card: topic header + collapsible question list -----------
-function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone }) {
+function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, onPaperClick, flash }) {
   const unique = cluster.unique;
   const isMobile = useIsMobile();
   const delay = Math.min((rank || 0) * 0.035, 0.45);
+  const lit = flash === `topic-${cluster.id}`;
   return (
-    <div
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = C.shadowMd; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = C.shadowSm; }}
-      style={{ background: "#fff", borderRadius: 16, border: `1px solid ${C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${C.line}`, boxShadow: C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s", animation: "rise .4s ease backwards", animationDelay: `${delay}s` }}>
+    <div id={`topic-${cluster.id}`}
+      onMouseEnter={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowMd; }}
+      onMouseLeave={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowSm; }}
+      style={{ background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
       {/* header (click anywhere to collapse/expand) */}
       <div onClick={onToggle} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
         <div style={{
@@ -135,13 +148,59 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
         <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
           {cluster.questions.map((q, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
-              <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.paperId || q.year || "?"}</span>
+              {q.pIdx != null && onPaperClick
+                ? <LinkChip title="See this whole paper" onClick={() => onPaperClick(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</LinkChip>
+                : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.paperId || q.year || "?"}</span>}
               <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
               <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
             </div>
           ))}
         </div>
       )}
+    </div>);
+}
+
+// ---- one paper card: a source exam + its questions (the "By paper" view) ----
+function PaperCard({ paper, label, collapsed, onToggle, onTopicClick, flash }) {
+  const isMobile = useIsMobile();
+  const lit = flash === `paper-${paper.pIdx}`;
+  return (
+    <div id={`paper-${paper.pIdx}`}
+      onMouseEnter={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowMd; }}
+      onMouseLeave={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowSm; }}
+      style={{ background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", transition: "box-shadow .2s, border-color .2s", animation: "rise .4s ease backwards", scrollMarginTop: 12 }}>
+      <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
+        <div style={{ width: 34, height: 34, flex: "0 0 auto", borderRadius: 10, background: C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}><IconFile s={17} c={C.primary} /></div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: C.font, fontSize: 16, fontWeight: 600, color: C.ink, lineHeight: 1.3, textWrap: "pretty" }}>{label}</div>
+          <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted, marginTop: 3 }}>{paper.count} {paper.count === 1 ? "question" : "questions"} · {paper.totalMarks} marks</div>
+        </div>
+        <IconChevron s={18} c={C.faint} dir={collapsed ? "down" : "up"} />
+      </div>
+      {!collapsed && (
+        <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {paper.questions.map((q, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
+              <LinkChip tone="primary" title={`Topic: ${q.topic} — jump to it across all papers`} onClick={() => onTopicClick(q.topicId)}>
+                <IconLayers s={10} c={C.primary} /> {q.topic.length > 30 ? q.topic.slice(0, 29) + "…" : q.topic}
+              </LinkChip>
+              <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
+              <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>);
+}
+
+// Segmented control: topic-grouping vs paper-grouping.
+function ViewToggle({ view, onChange }) {
+  const opt = (val, label) => (
+    <button onClick={() => onChange(val)} style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "7px 16px", borderRadius: 999, cursor: "pointer", border: "none", background: view === val ? "#fff" : "transparent", color: view === val ? C.primary : C.muted, boxShadow: view === val ? C.shadowSm : "none", transition: "color .15s, background .15s" }}>{label}</button>
+  );
+  return (
+    <div style={{ display: "inline-flex", gap: 3, padding: 3, background: "#eef0f8", borderRadius: 999, border: `1px solid ${C.line}` }}>
+      {opt("topic", "By topic")}{opt("paper", "By paper")}
     </div>);
 }
 
@@ -155,8 +214,12 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
   const [hideDone, setHideDone] = React.useState(false);
   const [starredOnly, setStarredOnly] = React.useState(false);
   const [showPublish, setShowPublish] = React.useState(false);
+  const [view, setView] = React.useState("topic"); // "topic" | "paper"
+  const [flash, setFlash] = React.useState(null);   // id of the card to briefly highlight after a jump
+  const pendingScroll = React.useRef(null);
 
   const { ranked, unique } = React.useMemo(() => summarize(data.groups), [data.groups]);
+  const papersView = React.useMemo(() => byPaper(data.groups), [data.groups]);
   const maxMarks = Math.max(1, ...ranked.map((c) => c.totalMarks));
   const isMobile = useIsMobile();
 
@@ -174,11 +237,37 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
 
+  // Build a readable paper label from the detected meta (falls back to paperId).
+  const paperLabelOf = (p) => {
+    const meta = (data.papers || [])[p.pIdx];
+    const ex = meta?.examType ? (meta.examType === "MID" ? "Mid-Sem" : "End-Sem") : null;
+    const bits = [meta?.session, ex, meta?.year ?? p.year].filter(Boolean);
+    return bits.length ? bits.join(" ") : (p.paperId || `Paper ${p.pIdx + 1}`);
+  };
+
+  // Cross-navigation between the two views (click a paper chip ⇄ a topic chip).
+  const goToPaper = (pIdx) => { pendingScroll.current = `paper-${pIdx}`; setView("paper"); };
+  const goToTopic = (topicId) => {
+    setCollapsed((prev) => { const n = new Set(prev); n.delete(topicId); return n; }); // ensure it's open
+    pendingScroll.current = `topic-${topicId}`; setView("topic");
+  };
+  React.useEffect(() => {
+    const target = pendingScroll.current;
+    if (!target) return;
+    pendingScroll.current = null;
+    const t = setTimeout(() => {
+      const el = document.getElementById(target);
+      if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); setFlash(target); setTimeout(() => setFlash(null), 1500); }
+    }, 70);
+    return () => clearTimeout(t);
+  }, [view]);
+
   const card = (c, rank) => (
     <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
       collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
       starred={starred.has(c.id)} done={done.has(c.id)}
-      onStar={() => onToggleStar(c.id)} onDone={() => onToggleDone(c.id)} />
+      onStar={() => onToggleStar(c.id)} onDone={() => onToggleDone(c.id)}
+      onPaperClick={goToPaper} flash={flash} />
   );
 
   // Review/edit mode replaces the ranked view (all hooks above run regardless).
@@ -239,8 +328,18 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
           </div>
         </div>
 
-        {/* study progress */}
+        {/* topic vs paper view toggle */}
         {allGroups.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <ViewToggle view={view} onChange={setView} />
+            <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint }}>
+              {view === "topic" ? "Grouped by concept · ranked by repeats" : `${papersView.length} ${papersView.length === 1 ? "paper" : "papers"} · questions in order`}
+            </span>
+          </div>
+        )}
+
+        {/* study progress */}
+        {view === "topic" && allGroups.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: C.font, fontSize: 12.5, color: C.muted, marginBottom: 6 }}>
               <span style={{ fontWeight: 600, color: C.ink2 }}>Studied {donePct}%</span>
@@ -253,7 +352,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
         )}
 
         {/* search + filters */}
-        {allGroups.length > 0 && (
+        {view === "topic" && allGroups.length > 0 && (
           <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search topics or questions…"
               style={{ flex: "1 1 240px", minWidth: 0, fontFamily: C.font, fontSize: 14, padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none" }} />
@@ -263,7 +362,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
           </div>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {view === "topic" && <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {ranked.length === 0
             ? <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
                 No repeated concepts yet. Upload papers from <strong>two or more years</strong> of the same subject and we'll surface the questions that come back.
@@ -280,7 +379,19 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
             </div>
             {uniqueF.map((c) => card(c, 0))}
           </React.Fragment>}
-        </div>
+        </div>}
+
+        {view === "paper" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {papersView.length === 0
+              ? <div style={noteStyle}>No questions to show.</div>
+              : papersView.map((p) => (
+                  <PaperCard key={p.pIdx} paper={p} label={paperLabelOf(p)}
+                    collapsed={collapsed.has(`paper-${p.pIdx}`)} onToggle={() => toggleCollapse(`paper-${p.pIdx}`)}
+                    onTopicClick={goToTopic} flash={flash} />
+                ))}
+          </div>
+        )}
       </div>
 
       {showPublish && <PublishModal defaults={publishDefaults} content={publishContent} onClose={() => setShowPublish(false)} />}

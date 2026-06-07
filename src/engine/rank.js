@@ -78,7 +78,7 @@ export function summarize(groups) {
         appears: papers.size,
         variants: g.items.length,
         // full list of questions in the group (year-sorted), for the card layout
-        questions: ordered.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
+        questions: ordered.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, pIdx: it.pIdx ?? null, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
         similars: g.items
           .filter((it) => it !== rep)
           .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),
@@ -92,6 +92,33 @@ export function summarize(groups) {
     .sort((a, b) => b.totalMarks - a.totalMarks || b.appears - a.appears || b.variants - a.variants);
   const unique = enriched.filter((c) => c.unique);
   return { ranked, unique };
+}
+
+// The "By paper" view: regroup the SAME questions by their source paper (pIdx),
+// in original question order, each tagged with the topic it belongs to (so the
+// UI can cross-link a question back to its topic group). Pure / derived.
+export function byPaper(groups) {
+  const papers = new Map(); // key -> { pIdx, paperId, year, questions: [] }
+  for (const g of groups) {
+    for (const it of g.items) {
+      const key = it.pIdx ?? it.paperId ?? 0;
+      if (!papers.has(key)) papers.set(key, { pIdx: it.pIdx ?? 0, paperId: it.paperId, year: it.year ?? null, questions: [] });
+      papers.get(key).questions.push({
+        id: it.id, text: it.text, marks: typeof it.marks === "number" ? it.marks : 5,
+        topic: g.topic, topicId: g.id, year: it.year ?? null, paperId: it.paperId,
+      });
+    }
+  }
+  // Order questions within a paper by their number/part parsed from the id (q1a…).
+  const ord = (id) => { const m = /(\d+)\s*([a-z]?)/i.exec(id || ""); return m ? Number(m[1]) * 100 + (m[2] ? m[2].toLowerCase().charCodeAt(0) - 96 : 0) : 9999; };
+  const out = [...papers.values()].map((p) => {
+    p.questions.sort((a, b) => ord(a.id) - ord(b.id));
+    p.totalMarks = p.questions.reduce((s, q) => s + q.marks, 0);
+    p.count = p.questions.length;
+    return p;
+  });
+  out.sort((a, b) => (b.year ?? -1) - (a.year ?? -1) || a.pIdx - b.pIdx); // newest first
+  return out;
 }
 
 // Back-compat for the Node dev scripts: clusters -> { ranked, unique }.
