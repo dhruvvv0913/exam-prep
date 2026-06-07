@@ -7,9 +7,9 @@ import { IconArrow, IconUpload, IconLayers, IconLock, IconClose } from "../compo
 import { Tag, PrimaryButton, GhostButton, FloatField } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { useAuth } from "../auth.jsx";
-import { listSubjects, myEntitlements } from "../engine/libraryDb.js";
+import { listSubjects, myEntitlements, listMySubjects, deleteMySubject } from "../engine/libraryDb.js";
 
-function SubjectCard({ s, locked, onClick, index = 0 }) {
+function SubjectCard({ s, locked, onClick, index = 0, onDelete }) {
   const [hover, setHover] = React.useState(false);
   return (
     <div onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
@@ -35,8 +35,11 @@ function SubjectCard({ s, locked, onClick, index = 0 }) {
         <Tag tone="primary">{s.topic_count} topics</Tag>
         {s.is_free && <Tag tone="good">Free</Tag>}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: C.font, fontSize: 13.5, fontWeight: 600, color: locked ? C.muted : C.primary, marginTop: 2 }}>
-        {locked ? <React.Fragment><IconLock s={14} c={C.muted} /> Locked</React.Fragment> : <React.Fragment>Open <IconArrow s={16} /></React.Fragment>}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: 2 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.font, fontSize: 13.5, fontWeight: 600, color: locked ? C.muted : C.primary }}>
+          {locked ? <React.Fragment><IconLock s={14} c={C.muted} /> Locked</React.Fragment> : <React.Fragment>Open <IconArrow s={16} /></React.Fragment>}
+        </span>
+        {onDelete && <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Remove from My Library" style={{ background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex", flex: "0 0 auto" }}><IconClose s={15} c={C.faint} /></button>}
       </div>
     </div>);
 }
@@ -72,25 +75,36 @@ function Paywall({ subject, auth, onClose }) {
     </React.Fragment>);
 }
 
-export default function LibraryScreen({ onOpen, onUpload }) {
+export default function LibraryScreen({ onOpen, onOpenMine, onUpload }) {
   const auth = useAuth();
   const isMobile = useIsMobile();
   const [subjects, setSubjects] = React.useState(null); // null = loading
   const [owned, setOwned] = React.useState([]);
+  const [mine, setMine] = React.useState([]); // the user's own saved analyses
   const [locked, setLocked] = React.useState(null);
   const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [subs, ent] = await Promise.all([listSubjects(), auth.user ? myEntitlements() : Promise.resolve([])]);
-      if (!cancelled) { setSubjects(subs); setOwned(ent); }
+      const [subs, ent, ms] = await Promise.all([
+        listSubjects(),
+        auth.user ? myEntitlements() : Promise.resolve([]),
+        auth.user ? listMySubjects() : Promise.resolve([]),
+      ]);
+      if (!cancelled) { setSubjects(subs); setOwned(ent); setMine(ms); }
     })();
     return () => { cancelled = true; };
   }, [auth.user]);
 
   const isOpen = (s) => auth.isAdmin || s.is_free || owned.includes(s.id);
   const handle = (s) => (isOpen(s) ? onOpen(s.id) : setLocked(s));
+  const removeMine = async (id) => {
+    setMine((m) => m.filter((x) => x.id !== id));
+    try { await deleteMySubject(id); } catch (e) { console.error(e); }
+  };
+  const gridStyle = { display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 };
+  const sectionLabel = { fontFamily: C.font, fontSize: 12.5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: C.muted, margin: "0 0 12px" };
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
@@ -105,6 +119,21 @@ export default function LibraryScreen({ onOpen, onUpload }) {
           </div>
           <PrimaryButton onClick={onUpload}><IconUpload s={17} /> Upload your own</PrimaryButton>
         </div>
+
+        {/* My Library: the user's own saved analyses (private to them) */}
+        {auth.user && mine.length > 0 && (
+          <div style={{ marginBottom: 34 }}>
+            <div style={sectionLabel}>Your subjects · saved from your uploads</div>
+            <div style={gridStyle}>
+              {mine.map((m, i) => (
+                <SubjectCard key={m.id} index={i} locked={false}
+                  s={{ subject: m.title, code: m.code, paper_count: m.paper_count, question_count: m.question_count, topic_count: m.topic_count }}
+                  onClick={() => onOpenMine(m.id)} onDelete={() => removeMine(m.id)} />
+              ))}
+            </div>
+          </div>
+        )}
+        {auth.user && mine.length > 0 && subjects && subjects.length > 0 && <div style={sectionLabel}>Curated subjects</div>}
 
         {subjects === null
           ? <div style={{ fontFamily: C.font, color: C.muted, padding: "40px 0", textAlign: "center" }}>Loading subjects…</div>

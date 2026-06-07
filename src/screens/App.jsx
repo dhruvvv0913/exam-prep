@@ -14,7 +14,7 @@ const LoadingScreen = React.lazy(() => import("./LoadingScreen.jsx"));
 const AnalysisScreen = React.lazy(() => import("./AnalysisScreen.jsx"));
 const LibraryScreen = React.lazy(() => import("./LibraryScreen.jsx"));
 const AdminScreen = React.lazy(() => import("./AdminScreen.jsx"));
-import { getSubjectContent } from "../engine/libraryDb.js";
+import { getSubjectContent, getMySubject } from "../engine/libraryDb.js";
 import { groupViaApi } from "../engine/aiGroup.js";
 import { useAuth } from "../auth.jsx";
 
@@ -127,7 +127,11 @@ export default function App() {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
 
-  const fromLibrary = progressKey.startsWith("lib:");
+  // progressKey is "upload" (fresh self-upload), "lib:<id>" (curated subject),
+  // or "mine:<id>" (the user's own saved analysis). fromLibrary = opened from a
+  // saved/curated subject rather than a fresh upload.
+  const fromUpload = progressKey === "upload";
+  const fromLibrary = !fromUpload;
   const home = () => setScreen("landing");
   const browse = () => setScreen("library");
   const reupload = () => { setPapers([]); setHandouts([]); setScreen("landing"); };
@@ -154,6 +158,21 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
+  // Open one of the user's own saved analyses ("My Library").
+  const openMySubject = async (id) => {
+    try {
+      const r = await getMySubject(id);
+      if (!r) return;
+      const key = `mine:${id}`;
+      const p = readProgress(key);
+      setResult(r);
+      setProgressKey(key);
+      setDone(new Set(p.done));
+      setStarred(new Set(p.starred));
+      setScreen("analysis");
+    } catch (e) { console.error(e); }
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.bgMesh, fontFamily: C.font }}>
       <AuroraBg />
@@ -161,11 +180,11 @@ export default function App() {
       <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <React.Suspense fallback={<ScreenFallback />}>
           {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />}
-          {screen === "library" && <LibraryScreen onOpen={openSubject} onUpload={reupload} />}
-          {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
+          {screen === "library" && <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />}
+          {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />)}
           {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} onDone={onDone} onError={reupload} />}
           {screen === "analysis" && (result
-            ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary} fromLibrary={fromLibrary}
+            ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && fromUpload} canSaveMine={!!auth.user && fromUpload} fromLibrary={fromLibrary}
                 done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
             : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
         </React.Suspense>

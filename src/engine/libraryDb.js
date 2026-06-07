@@ -30,6 +30,39 @@ export async function myEntitlements() {
   return (data || []).map((r) => r.subject_id);
 }
 
+// --- My Library: a signed-in user's own saved analyses (private via RLS) ---
+export async function listMySubjects() {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("my_subjects")
+    .select("id,title,code,paper_count,question_count,topic_count,created_at")
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
+export async function getMySubject(id) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("my_subjects").select("content").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data?.content || null;
+}
+
+export async function saveMySubject(meta, content) {
+  const { data, error } = await supabase
+    .from("my_subjects")
+    .insert({ title: meta.title, code: meta.code || null, paper_count: meta.paperCount, question_count: meta.questionCount, topic_count: meta.topicCount, content })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+export async function deleteMySubject(id) {
+  const { error } = await supabase.from("my_subjects").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // --- admin only (RLS rejects non-admins) -------------------------------
 export async function publishSubject(meta, content) {
   const { error: e1 } = await supabase.from("subjects").upsert(meta);

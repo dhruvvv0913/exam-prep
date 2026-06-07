@@ -4,12 +4,12 @@
 // screen ("Edit groups") edits those groups directly.
 import React from "react";
 import { C, hexA } from "../theme.js";
-import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose, IconFile } from "../components/icons.jsx";
+import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose, IconFile, IconPlus } from "../components/icons.jsx";
 import { Tag, HeatBar, GhostButton, PrimaryButton } from "../components/atoms.jsx";
 import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { summarize, byPaper } from "../engine/rank.js";
-import { publishSubject } from "../engine/libraryDb.js";
+import { publishSubject, saveMySubject } from "../engine/libraryDb.js";
 import ReviewScreen from "./ReviewScreen.jsx";
 
 // Marks aren't read off the (often garbled) paper — they're assigned from the
@@ -212,7 +212,7 @@ function ViewToggle({ view, onChange }) {
 }
 
 // ---- screen ------------------------------------------------------------
-export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibrary, done, starred, onToggleDone, onToggleStar }) {
+export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveMine, fromLibrary, done, starred, onToggleDone, onToggleStar }) {
   const paperCount = data.paperCount;
   const [editing, setEditing] = React.useState(false);
   // collapsed by id; default = the "asked once" groups start collapsed.
@@ -221,6 +221,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
   const [hideDone, setHideDone] = React.useState(false);
   const [starredOnly, setStarredOnly] = React.useState(false);
   const [showPublish, setShowPublish] = React.useState(false);
+  const [mineState, setMineState] = React.useState("idle"); // idle | saving | saved | error
   const [view, setView] = React.useState("topic"); // "topic" | "paper"
   const [flash, setFlash] = React.useState(null);   // id of the card to briefly highlight after a jump
   const pendingScroll = React.useRef(null);
@@ -318,6 +319,18 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
   };
   const publishContent = { papers: data.papers, groups: data.groups, questionCount: data.questionCount, paperCount: data.paperCount };
 
+  // Signed-in users can save this analysis to their own (private) library.
+  const saveMine = async () => {
+    setMineState("saving");
+    try {
+      await saveMySubject(
+        { title: subject || "My subject", code: publishDefaults.code, paperCount: data.paperCount, questionCount: data.questionCount, topicCount: ranked.length + unique.length },
+        publishContent
+      );
+      setMineState("saved");
+    } catch (e) { console.error(e); setMineState("error"); }
+  };
+
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 1040, margin: "0 auto", padding: isMobile ? "24px 16px 48px" : "34px 32px 60px" }}>
@@ -330,6 +343,13 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
+            {canSaveMine && (
+              <GhostButton onClick={mineState === "saved" ? undefined : saveMine}>
+                {mineState === "saved"
+                  ? <React.Fragment><IconCheck s={14} c={C.good} sw={2.6} /> Saved to My Library</React.Fragment>
+                  : <React.Fragment><IconPlus s={14} c={C.ink2} /> {mineState === "saving" ? "Saving…" : mineState === "error" ? "Retry save" : "Save to My Library"}</React.Fragment>}
+              </GhostButton>
+            )}
             <GhostButton onClick={() => setEditing(true)}><IconLayers s={15} c={C.ink2} /> Edit groups</GhostButton>
             {canSave && <GhostButton onClick={() => setShowPublish(true)}><IconUpload s={15} c={C.ink2} /> Publish to library</GhostButton>}
           </div>
