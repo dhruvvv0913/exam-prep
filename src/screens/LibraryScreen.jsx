@@ -6,6 +6,7 @@ import { C, hexA } from "../theme.js";
 import { IconArrow, IconUpload, IconLayers, IconLock, IconClose } from "../components/icons.jsx";
 import { Tag, PrimaryButton, GhostButton, FloatField } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
+import { useDismissable } from "../useDismissable.js";
 import { useAuth } from "../auth.jsx";
 import { listSubjects, myEntitlements, listMySubjects, deleteMySubject } from "../engine/libraryDb.js";
 
@@ -46,10 +47,11 @@ function SubjectCard({ s, locked, onClick, index = 0, onDelete }) {
 
 // Paywall shown when a locked subject is clicked.
 function Paywall({ subject, auth, onClose }) {
+  const dialogRef = useDismissable(onClose);
   return (
     <React.Fragment>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
-      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(440px, 92vw)", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 26 }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`${subject.subject} is locked`} style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(440px, 92vw)", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 26, outline: "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f1f2f8", display: "flex", alignItems: "center", justifyContent: "center" }}><IconLock s={22} c={C.muted} /></div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
