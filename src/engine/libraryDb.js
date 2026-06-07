@@ -91,3 +91,64 @@ export async function revokeAccess(email, subjectId) {
   const { error } = await supabase.from("entitlements").delete().eq("email", email.trim().toLowerCase()).eq("subject_id", subjectId);
   if (error) throw error;
 }
+
+// --- community contributions (students submit; admin reviews) -----------
+const slug = (s) => (s || "subject").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "subject";
+
+// Any signed-in user can submit. `targetSubjectId` set => "pool into" that
+// subject; null => propose a brand-new subject.
+export async function submitContribution(meta, content, targetSubjectId = null) {
+  if (!supabase) throw new Error("Sign-in required");
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from("contributions").insert({
+    email: user?.email || null, title: meta.title, code: meta.code || null,
+    target_subject_id: targetSubjectId, content,
+  });
+  if (error) throw error;
+}
+
+export async function listContributions() { // admin only (RLS)
+  const { data, error } = await supabase.from("contributions").select("*").eq("status", "pending").order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+// Append one analysis's groups into another's, re-basing pIdx so paper counts
+// don't collide. Same-topic groups are NOT auto-merged — the admin tidies those
+// in the review screen afterward.
+function mergeContent(target, add) {
+  const tGroups = target.groups || [];
+  const maxP = Math.max(-1, ...tGroups.flatMap((g) => g.items.map((it) => it.pIdx ?? 0)));
+  const offset = maxP + 1;
+  const shifted = (add.groups || []).map((g) => ({
+    ...g,
+    items: g.items.map((it) => { const p = (it.pIdx ?? 0) + offset; return { ...it, pIdx: p, uid: `${p}__${it.id}` }; }),
+  }));
+  const groups = [...tGroups, ...shifted].map((g, i) => ({ ...g, id: `g${i}` }));
+  const questionCount = groups.reduce((n, g) => n + g.items.length, 0);
+  const paperCount = new Set(groups.flatMap((g) => g.items.map((it) => it.pIdx))).size;
+  return { papers: [...(target.papers || []), ...(add.papers || [])], groups, questionCount, paperCount, topicCount: groups.length };
+}
+
+export async function approveContribution(c) {
+  if (c.target_subject_id) {
+    const target = (await getSubjectContent(c.target_subject_id)) || { groups: [], papers: [] };
+    const merged = mergeContent(target, c.content);
+    const r1 = await supabase.from("subject_content").upsert({ subject_id: c.target_subject_id, content: merged });
+    if (r1.error) throw r1.error;
+    const r2 = await supabase.from("subjects").update({ question_count: merged.questionCount, paper_count: merged.paperCount, topic_count: merged.topicCount }).eq("id", c.target_subject_id);
+    if (r2.error) throw r2.error;
+  } else {
+    await publishSubject(
+      { id: slug(c.title), subject: c.title, code: c.code || null, paper_count: c.content.paperCount, question_count: c.content.questionCount, topic_count: (c.content.groups || []).length, is_free: true },
+      c.content
+    );
+  }
+  const { error } = await supabase.from("contributions").update({ status: "approved" }).eq("id", c.id);
+  if (error) throw error;
+}
+
+export async function rejectContribution(id) {
+  const { error } = await supabase.from("contributions").update({ status: "rejected" }).eq("id", id);
+  if (error) throw error;
+}

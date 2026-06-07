@@ -6,7 +6,7 @@ import { C } from "../theme.js";
 import { IconArrow, IconClose } from "../components/icons.jsx";
 import { Tag, PrimaryButton, GhostButton } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
-import { listSubjects, listEntitlements, grantAccess, revokeAccess, deleteSubject } from "../engine/libraryDb.js";
+import { listSubjects, listEntitlements, grantAccess, revokeAccess, deleteSubject, listContributions, approveContribution, rejectContribution } from "../engine/libraryDb.js";
 
 const card = { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 20, boxShadow: C.shadowSm };
 const input = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none" };
@@ -15,6 +15,7 @@ export default function AdminScreen({ onBack }) {
   const isMobile = useIsMobile();
   const [subjects, setSubjects] = React.useState([]);
   const [grants, setGrants] = React.useState([]);
+  const [contribs, setContribs] = React.useState([]);
   const [email, setEmail] = React.useState("");
   const [subjectId, setSubjectId] = React.useState("");
   const [msg, setMsg] = React.useState(null);
@@ -22,8 +23,8 @@ export default function AdminScreen({ onBack }) {
 
   const refresh = React.useCallback(async () => {
     try {
-      const [subs, ent] = await Promise.all([listSubjects(), listEntitlements()]);
-      setSubjects(subs); setGrants(ent);
+      const [subs, ent, cont] = await Promise.all([listSubjects(), listEntitlements(), listContributions()]);
+      setSubjects(subs); setGrants(ent); setContribs(cont);
       if (subs.length && !subjectId) setSubjectId(subs[0].id);
     } catch (e) { setMsg({ kind: "err", text: e.message }); }
   }, [subjectId]);
@@ -53,6 +54,26 @@ export default function AdminScreen({ onBack }) {
         <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: isMobile ? 24 : 30, color: C.ink, letterSpacing: -0.4, margin: "0 0 22px" }}>Admin · Library</h1>
 
         {msg && <div style={{ fontFamily: C.font, fontSize: 13.5, padding: "10px 14px", borderRadius: 10, marginBottom: 18, color: msg.kind === "ok" ? C.good : "#c0392b", background: msg.kind === "ok" ? C.goodSoft : "#fdecea" }}>{msg.text}</div>}
+
+        {/* Pending contributions */}
+        {contribs.length > 0 && (
+          <div style={{ ...card, marginBottom: 18 }}>
+            <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 16, color: C.ink, marginBottom: 12 }}>Pending contributions ({contribs.length})</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {contribs.map((c) => (
+                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 10, flexWrap: "wrap" }}>
+                  <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                    <div style={{ fontFamily: C.font, fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}{c.code ? ` · ${c.code}` : ""}</div>
+                    <div style={{ fontFamily: C.font, fontSize: 12, color: C.faint }}>
+                      {c.email || "anonymous"} · {c.content?.questionCount ?? "?"} questions · {c.target_subject_id ? `→ add to “${nameOf(c.target_subject_id)}”` : "new subject"}
+                    </div>
+                  </div>
+                  <button disabled={busy} onClick={() => run(() => approveContribution(c), "Contribution approved.")} style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: "#fff", background: C.good, border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Approve</button>
+                  <button disabled={busy} onClick={() => run(() => rejectContribution(c.id), "Contribution rejected.")} style={{ fontFamily: C.font, fontSize: 12.5, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Reject</button>
+                </div>))}
+            </div>
+          </div>
+        )}
 
         {/* Grant access */}
         <div style={{ ...card, marginBottom: 18 }}>

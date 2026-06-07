@@ -9,7 +9,7 @@ import { Tag, HeatBar, GhostButton, PrimaryButton } from "../components/atoms.js
 import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { summarize, byPaper } from "../engine/rank.js";
-import { publishSubject, saveMySubject } from "../engine/libraryDb.js";
+import { publishSubject, saveMySubject, submitContribution, listSubjects } from "../engine/libraryDb.js";
 import ReviewScreen from "./ReviewScreen.jsx";
 
 // Marks aren't read off the (often garbled) paper — they're assigned from the
@@ -75,6 +75,54 @@ function PublishModal({ defaults, content, onClose }) {
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <GhostButton onClick={onClose}>{msg?.k === "ok" ? "Done" : "Cancel"}</GhostButton>
           {msg?.k !== "ok" && <PrimaryButton onClick={publish} disabled={busy}>{busy ? "Publishing…" : "Publish"}</PrimaryButton>}
+        </div>
+      </div>
+    </React.Fragment>);
+}
+
+// Any signed-in user: submit this analysis to the shared library (for admin
+// review). Optionally "pool" it into an existing subject instead of a new one.
+function ContributeModal({ defaults, content, onClose }) {
+  const [title, setTitle] = React.useState(defaults.subject || "");
+  const [code, setCode] = React.useState(defaults.code || "");
+  const [target, setTarget] = React.useState(""); // "" = propose new subject
+  const [subjects, setSubjects] = React.useState([]);
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState(null);
+  React.useEffect(() => { listSubjects().then(setSubjects).catch(() => {}); }, []);
+  const field = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none", width: "100%", boxSizing: "border-box" };
+  const lab = { fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: C.ink2, margin: "12px 0 5px" };
+  const submit = async () => {
+    if (!title.trim()) { setMsg({ k: "err", t: "A subject name is required." }); return; }
+    setBusy(true); setMsg(null);
+    try {
+      await submitContribution({ title: title.trim(), code: code.trim() || null, paperCount: defaults.paperCount, questionCount: defaults.questionCount }, content, target || null);
+      setMsg({ k: "ok", t: "Thanks! Sent for review — it'll appear in the library once approved." });
+    } catch (e) { setMsg({ k: "err", t: e.message }); }
+    finally { setBusy(false); }
+  };
+  return (
+    <React.Fragment>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
+      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 18, color: C.ink }}>Contribute to the library</div>
+          <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
+        </div>
+        <p style={{ fontFamily: C.font, fontSize: 13, color: C.muted, lineHeight: 1.5, margin: "6px 0 4px" }}>Share these questions so other students of this subject benefit. An admin reviews it before it goes live.</p>
+        <div style={lab}>Subject name</div>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} style={field} />
+        <div style={lab}>Code (optional)</div>
+        <input value={code} onChange={(e) => setCode(e.target.value)} style={field} />
+        <div style={lab}>Add to an existing subject? (optional)</div>
+        <select value={target} onChange={(e) => setTarget(e.target.value)} style={{ ...field, cursor: "pointer" }}>
+          <option value="">No — propose it as a new subject</option>
+          {subjects.map((s) => <option key={s.id} value={s.id}>Add my papers to “{s.subject}”</option>)}
+        </select>
+        {msg && <div style={{ fontFamily: C.font, fontSize: 13, padding: "9px 12px", borderRadius: 9, margin: "14px 0 0", color: msg.k === "ok" ? C.good : "#c0392b", background: msg.k === "ok" ? C.goodSoft : "#fdecea" }}>{msg.t}</div>}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
+          <GhostButton onClick={onClose}>{msg?.k === "ok" ? "Done" : "Cancel"}</GhostButton>
+          {msg?.k !== "ok" && <PrimaryButton onClick={submit} disabled={busy}>{busy ? "Sending…" : "Submit"}</PrimaryButton>}
         </div>
       </div>
     </React.Fragment>);
@@ -221,6 +269,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
   const [hideDone, setHideDone] = React.useState(false);
   const [starredOnly, setStarredOnly] = React.useState(false);
   const [showPublish, setShowPublish] = React.useState(false);
+  const [showContribute, setShowContribute] = React.useState(false);
   const [mineState, setMineState] = React.useState("idle"); // idle | saving | saved | error
   const [view, setView] = React.useState("topic"); // "topic" | "paper"
   const [flash, setFlash] = React.useState(null);   // id of the card to briefly highlight after a jump
@@ -350,6 +399,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
                   : <React.Fragment><IconPlus s={14} c={C.ink2} /> {mineState === "saving" ? "Saving…" : mineState === "error" ? "Retry save" : "Save to My Library"}</React.Fragment>}
               </GhostButton>
             )}
+            {canSaveMine && !canSave && <GhostButton onClick={() => setShowContribute(true)}><IconUpload s={15} c={C.ink2} /> Contribute to library</GhostButton>}
             <GhostButton onClick={() => setEditing(true)}><IconLayers s={15} c={C.ink2} /> Edit groups</GhostButton>
             {canSave && <GhostButton onClick={() => setShowPublish(true)}><IconUpload s={15} c={C.ink2} /> Publish to library</GhostButton>}
           </div>
@@ -434,5 +484,6 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
       </div>
 
       {showPublish && <PublishModal defaults={publishDefaults} content={publishContent} onClose={() => setShowPublish(false)} />}
+      {showContribute && <ContributeModal defaults={publishDefaults} content={publishContent} onClose={() => setShowContribute(false)} />}
     </div>);
 }
