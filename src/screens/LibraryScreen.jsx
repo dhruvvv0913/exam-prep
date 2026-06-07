@@ -78,6 +78,7 @@ export default function LibraryScreen({ onOpen, onUpload }) {
   const [subjects, setSubjects] = React.useState(null); // null = loading
   const [owned, setOwned] = React.useState([]);
   const [locked, setLocked] = React.useState(null);
+  const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -111,9 +112,23 @@ export default function LibraryScreen({ onOpen, onUpload }) {
             ? <div style={{ fontFamily: C.font, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "28px 24px", textAlign: "center", lineHeight: 1.6 }}>
                 No subjects published yet.<br /><span style={{ fontSize: 13.5, color: C.faint }}>{auth.isAdmin ? "Upload papers and use “Publish to library” to add one." : "Check back soon."}</span>
               </div>
-            : <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-                {subjects.map((s, i) => <SubjectCard key={s.id} s={s} index={i} locked={!isOpen(s)} onClick={() => handle(s)} />)}
-              </div>}
+            : (() => {
+                const q = query.trim().toLowerCase();
+                const shown = subjects.filter((s) => !q || (s.subject || "").toLowerCase().includes(q) || (s.code || "").toLowerCase().includes(q));
+                return (
+                  <React.Fragment>
+                    {subjects.length > 3 && (
+                      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search subjects by name or code…"
+                        aria-label="Search subjects"
+                        style={{ width: "100%", boxSizing: "border-box", fontFamily: C.font, fontSize: 14, padding: "10px 14px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none", marginBottom: 16 }} />
+                    )}
+                    {shown.length === 0
+                      ? <div style={{ fontFamily: C.font, color: C.muted, padding: "24px 4px" }}>No subjects match “{query}”.</div>
+                      : <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+                          {shown.map((s, i) => <SubjectCard key={s.id} s={s} index={i} locked={!isOpen(s)} onClick={() => handle(s)} />)}
+                        </div>}
+                  </React.Fragment>);
+              })()}
       </div>
 
       {locked && <Paywall subject={locked} auth={auth} onClose={() => setLocked(null)} />}
