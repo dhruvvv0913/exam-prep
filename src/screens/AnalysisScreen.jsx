@@ -390,7 +390,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
             <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across {fromLibrary ? `${paperCount} ${paperCount === 1 ? "paper" : "papers"}` : `your ${paperCount} uploaded ${paperCount === 1 ? "paper" : "papers"}`}.</div>
             <div title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 12, color: C.faint, marginTop: 6 }}>Marks are estimated from the standard exam scheme.</div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, flexWrap: "wrap" }}>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
             {canSaveMine && (
               <GhostButton onClick={mineState === "saved" ? undefined : saveMine}>

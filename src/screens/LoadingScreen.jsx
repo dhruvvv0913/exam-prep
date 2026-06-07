@@ -4,6 +4,7 @@ import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconCheck } from "../components/icons.jsx";
 import { FloatField, PrimaryButton } from "../components/atoms.jsx";
+import { useIsMobile } from "../useIsMobile.js";
 import { analyze } from "../engine/pipeline.js";
 
 function ScanDoc() {
@@ -52,6 +53,7 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
   const [active, setActive] = React.useState(0);
   const [notes, setNotes] = React.useState(() => stepDefs.map(() => ""));
   const [error, setError] = React.useState(null);
+  const isMobile = useIsMobile();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -90,7 +92,7 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
   }, []);
 
   return (
-    <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px", overflow: "hidden" }}>
+    <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: isMobile ? "0 18px" : "0 32px", overflow: "hidden" }}>
       <FloatField />
       <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 500, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <ScanDoc />
@@ -114,7 +116,7 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
               {stepDefs.map((s, i) => {
                 const state = i < active ? "done" : i === active ? "active" : "pending";
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, opacity: state === "pending" ? 0.45 : 1, transition: "opacity .3s" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", opacity: state === "pending" ? 0.45 : 1, transition: "opacity .3s" }}>
                     <StepIcon state={state} />
                     <span style={{ fontFamily: C.font, fontSize: 15, fontWeight: state === "active" ? 600 : 500, color: C.ink }}>{s.label}</span>
                     {notes[i] && <span style={{ fontFamily: C.font, fontSize: 12.5, color: state === "active" ? C.primary : C.faint, marginLeft: "auto" }}>{notes[i]}</span>}
