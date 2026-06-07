@@ -1,7 +1,14 @@
 // Concept clustering: group questions about the same topic, even when worded
 // differently, using sentence-embeddings from a small AI model that runs
 // locally (transformers.js — free, no API, no key).
+//
+// This module owns the EMBEDDER (the model). The pure clustering math lives in
+// clusterCore.js (Node-safe, unit-tested) and is re-exported here so existing
+// importers (pipeline, scripts) keep working unchanged.
 import { pipeline, env } from "@xenova/transformers";
+import { clusterVectors, anchorVectors } from "./clusterCore.js";
+
+export { clusterVectors, anchorVectors, extractKeywords, dot } from "./clusterCore.js";
 
 // Fully self-hosted: load the model and the ONNX-runtime WASM from our OWN
 // origin (files live in public/models and public/ort), never an external CDN.
@@ -24,23 +31,6 @@ env.useBrowserCache = false;
 export const MODEL = "Xenova/bge-small-en-v1.5";
 export const POOLING = "cls";
 
-// Words that carry no topic signal: stopwords + generic exam verbs/phrasing.
-const STOP = new Set(
-  ("the of and to in is are be a an for with on at as by it its from this that these how what why " +
-   "when which who where each both all any following given using use explain define write state describe " +
-   "discuss compare differentiate difference between find calculate consider brief major role about can " +
-   "does do various their there here also respect example importance concept basic types short note").split(" ")
-);
-
-// Topic words for a question: content words (len>=4, minus stopwords) plus
-// short UPPERCASE acronyms (AR, VR, AI, ML, DL, IoT, M2M...) which are strong
-// topic signals but too short for the word filter.
-function extractKeywords(text) {
-  const words = (text.toLowerCase().match(/[a-z]{4,}/g) || []).filter((w) => !STOP.has(w));
-  const acronyms = (text.match(/\b[A-Z]{2,5}\b/g) || []).map((a) => a.toLowerCase());
-  return new Set([...words, ...acronyms]);
-}
-
 // Load each embedding model once and reuse it.
 const _embedders = new Map();
 async function getEmbedder(modelId = MODEL) {
@@ -59,100 +49,10 @@ export async function embed(texts, { modelId = MODEL, pooling = POOLING } = {}) 
   return out;
 }
 
-// Cosine similarity of two already-normalized vectors == dot product.
-function dot(a, b) {
-  let s = 0;
-  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
-  return s;
-}
-
-// Pure clustering given precomputed vectors (so it's easy to A/B test models).
-//
-// Complete-linkage: an item joins a cluster only if it's similar (>= threshold)
-// to EVERY member, avoiding "junk-drawer" clusters. PLUS a keyword guard: in the
-// weaker similarity band [threshold, strong), the item must also share a real
-// topic word with the cluster — this stops questions that merely share generic
-// exam phrasing from grouping. Words that appear in most questions (e.g. the
-// subject name) are treated as non-distinctive and ignored.
-//
-// items: [{ id, text, ... }]   returns clusters: [{ items: [...] }] largest-first
-export function clusterVectors(items, vecs, { threshold = 0.72, strong = 0.89 } = {}) {
-  const kwSets = items.map((it) => extractKeywords(it.text));
-  const N = items.length;
-  const df = new Map();
-  for (const s of kwSets) for (const w of s) df.set(w, (df.get(w) || 0) + 1);
-  const ubiquitous = new Set([...df].filter(([, c]) => c / N > 0.5).map(([w]) => w));
-  const kw = kwSets.map((s) => new Set([...s].filter((w) => !ubiquitous.has(w))));
-
-  const clusters = [];
-  items.forEach((item, i) => {
-    const v = vecs[i];
-    let best = null;
-    let bestAvg = -1;
-    for (const c of clusters) {
-      let min = Infinity, sum = 0;
-      for (const m of c.items) { const s = dot(v, m.vec); if (s < min) min = s; sum += s; }
-      if (min < threshold) continue;
-      const shares = [...kw[i]].some((w) => c.kw.has(w));
-      if (min < strong && !shares) continue; // weak match needs a shared topic word
-      const avg = sum / c.items.length;
-      if (avg > bestAvg) { bestAvg = avg; best = c; }
-    }
-    if (best) { best.items.push({ ...item, vec: v }); for (const w of kw[i]) best.kw.add(w); }
-    else clusters.push({ items: [{ ...item, vec: v }], kw: new Set(kw[i]) });
-  });
-
-  return clusters.sort((a, b) => b.items.length - a.items.length);
-}
-
 // items: [{ id, text, paperId, year, examType, marks }]
 export async function clusterQuestions(items, opts = {}) {
   const vecs = await embed(items.map((q) => q.text), opts);
   return clusterVectors(items, vecs, opts);
-}
-
-// ---- slide-anchored grouping (strict) ----------------------------------
-//
-// When the user supplies course slides we have a real topic taxonomy to group
-// AGAINST, instead of discovering clusters bottom-up. Strict mode assigns every
-// question to its single nearest slide topic; a question whose best match is
-// below `floor` (it isn't really on any slide) goes to one "Not on slides"
-// bucket rather than being forced into an unrelated topic.
-//
-// Pure given precomputed vectors. Returns clusters [{ topic, items }] (only the
-// non-empty ones), largest-first, with the "Not on slides" bucket always last.
-//
-// Each question is matched to its nearest slide TITLE (precise), but grouped
-// under that title's `deckOf` label when provided — so a topic that spans many
-// slide titles ("Addressing Modes") aggregates into ONE group instead of
-// scattering. Without `deckOf` it groups per title (back-compat).
-//
-// `floor` is calibrated for bge-small CLS cosines, whose short-text similarities
-// bunch up around 0.65–0.80: on real COA papers, correct topic matches scored
-// ≥0.73 while questions with no matching slide peaked at ~0.69, so 0.70 cleanly
-// routes off-syllabus questions to "Not on slides" instead of forcing a weak
-// match. The admin merge/split/rename step then fixes any borderline calls.
-export function anchorVectors(items, qVecs, topics, topicVecs, { floor = 0.70, deckOf = null } = {}) {
-  const labelOf = (j) => (deckOf ? deckOf[j] : topics[j]);
-  const buckets = new Map(); // label -> { topic, items }
-  const leftover = [];
-  items.forEach((item, i) => {
-    let bestJ = -1, best = -Infinity;
-    for (let j = 0; j < topicVecs.length; j++) {
-      const s = dot(qVecs[i], topicVecs[j]);
-      if (s > best) { best = s; bestJ = j; }
-    }
-    if (bestJ >= 0 && best >= floor) {
-      const lab = labelOf(bestJ);
-      if (!buckets.has(lab)) buckets.set(lab, { topic: lab, items: [] });
-      buckets.get(lab).items.push(item);
-    } else {
-      leftover.push(item);
-    }
-  });
-  const groups = [...buckets.values()].sort((a, b) => b.items.length - a.items.length);
-  if (leftover.length) groups.push({ topic: "Not on slides", items: leftover });
-  return groups;
 }
 
 // topics: [string]   items: [{ id, text, ... }]   opts.deckOf: parallel labels

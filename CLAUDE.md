@@ -8,9 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev      # start dev server (HMR)
 npm run build    # production build
 npm run preview  # preview production build locally
+npm test         # engine unit tests (Node's built-in runner, tests/*.test.mjs)
 ```
 
-No test suite or linter is configured.
+`npm test` covers the pure engine modules (parsePaper, textQuality, rank, slides, clusterCore) with zero extra dependencies. No linter is configured. The browser-only modules (extractText, ocr, cluster's embedder) aren't unit-tested — they're exercised by the `scripts/` harnesses against real PDFs.
 
 ### Engine dev scripts (Node)
 
