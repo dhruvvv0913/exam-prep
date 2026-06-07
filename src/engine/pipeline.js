@@ -6,7 +6,9 @@
 import { extractText } from "./extractText.js";
 import { ocrImage } from "./ocr.js";
 import { parsePaper } from "./parsePaper.js";
-import { clusterQuestions, anchorQuestions } from "./cluster.js";
+// cluster.js pulls in transformers.js + onnxruntime (~1.3 MB). It's imported
+// *dynamically* (below) so signed-in AI-grouping users — whose grouping happens
+// on the server — never download the embedder unless the LLM call fails.
 import { extractDeckTopics, deckLabel } from "./slides.js";
 import { groupsFromClusters } from "./rank.js";
 
@@ -30,6 +32,11 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
   const papers = [];
   const skipped = []; // papers we couldn't read or that yielded no questions
   const warnings = []; // papers we analysed but flagged (e.g. answer keys)
+
+  // When there's no AI grouper we'll definitely need the in-browser embedder,
+  // so start downloading its chunk in parallel with reading the papers (so it
+  // isn't a serial wait after extraction). AI users skip it entirely.
+  const embedderP = aiGroup ? null : import("./cluster.js");
 
   for (let i = 0; i < paperFiles.length; i++) {
     const pages = paperFiles[i];
@@ -116,6 +123,9 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
   }
   if (!clusters) {
     try {
+      // Use the prefetched chunk if we started one; otherwise (AI path that
+      // failed) load it now.
+      const { clusterQuestions, anchorQuestions } = await (embedderP || import("./cluster.js"));
       clusters = topics.length ? await anchorQuestions(items, topics, { deckOf }) : await clusterQuestions(items);
     } catch (e) {
       throw new Error(`Grouping (AI model) failed: ${e.message}`);

@@ -15,6 +15,7 @@ vision and the big technical decisions live in `memory/` and `CLAUDE.md`.)
 | **Library** | Search/filter subjects by name/code (appears once there are >3). | `f9bfa59` |
 | **Library growth** | Pivoted from admin hand-curation to a self-growing model: **My Library** (users save their own analyses, private), **community contributions** (users submit a new subject for admin review), and **pooling** (add papers to an existing subject; admin merge). | `3108c9f`, `9b3dfc3` |
 | **Mobile** | Wrapped the analysis-header action row and loading step rows so a signed-in student's buttons / a long progress note can't overflow on a narrow phone. | `ec488ce` |
+| **Lazy engine deps** | Dynamically import tesseract.js (OCR) and the embedder (`cluster.js`, transformers+onnxruntime). The analysis chunk dropped 1.33 MB → 487 KB; AI-grouping users skip the 817 KB embedder entirely (prefetched in parallel for the no-AI path). | *next push* |
 | **Solution-sheet detection** | `assessSolutionSheet()` flags answer keys (explicit "Marking Scheme/Model Answer" header, or "Solution –"/"Ans:" lead-ins on ≥50% of questions / ≥6 absolute) → `meta.solution` → a non-destructive `warnings` banner telling the user to prefer the question paper. Validated on real COA papers (2023.pdf solution sheet flags; question papers don't). | *next push* |
 
 ## Recommended next (roughly by value)
@@ -26,7 +27,7 @@ vision and the big technical decisions live in `memory/` and `CLAUDE.md`.)
 4. **Solution-sheet handling — DONE (detect + warn).** `assessSolutionSheet()` now flags answer keys and the analysis screen warns the user to upload the question paper. Still open (riskier): actually *stripping* stray "Term – explanation" answer bullets that slip through as pseudo-questions, and detecting solution sheets that have **no** explicit header and few separators (pure OCR scans of hand-marked scripts).
 5. **OCR acronym-gibberish** — slide-title extraction lets through OCR garble like "OSGN OSPN" (the vowel filter misses it because "O" is a vowel). A dictionary/real-word check would help but risks dropping legit all-caps titles ("BUS STRUCTURE").
 6. **More numbering formats** — supporting `1)` / `Q1.` would help non-KIIT papers, but needs real alt-format samples to tune without regressing solution sheets. Gather a few first, then add with tests.
-7. **Further bundle splitting** — the engine chunk is still ~1.34 MB. Tesseract (OCR) is only needed for scanned/image papers; lazy-load it inside `ocr.js` so text-layer PDFs never download it.
+7. **Further bundle splitting — DONE.** Tesseract and the embedder (`cluster.js`) are now dynamically imported; the analysis chunk is ~487 KB (was ~1.33 MB) and AI users skip the 817 KB embedder. Remaining: pdf.worker is still a 2.19 MB asset (loaded by pdfjs as a worker, off the main thread) — hard to shrink without dropping pdfjs features.
 8. **Pipeline integration test** — add one tiny fixture PDF and a test that runs `analyze()` end-to-end (currently only the pure stages are unit-tested; extraction/OCR are covered by the `scripts/` harnesses against real PDFs).
 9. **Mobile QA pass** — spot-check spacing/touch targets across screens on a real phone.
 10. **Print/copy lock** (deferred) — the student no-export request; browser-side deterrent only (can't fully prevent screenshots).

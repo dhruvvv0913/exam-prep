@@ -2,7 +2,13 @@
 // We render each PDF page to a canvas with pdfjs, then read the pixels with
 // tesseract.js (free, local, no API). Used only when the embedded text layer
 // is empty or garbled — see textQuality.assessText.
-import { createWorker } from "tesseract.js";
+
+// tesseract.js is loaded *lazily* (dynamic import) so the common case — PDFs
+// with a real text layer — never downloads the OCR engine; it splits into its
+// own chunk that loads only when we actually OCR. The import promise is cached
+// so repeat/concurrent calls share one load.
+let _tesseract;
+const loadTesseract = () => (_tesseract ??= import("tesseract.js"));
 
 // Self-hosted worker/core/lang (public/tesseract) so OCR works on networks
 // that block CDNs — same reason as the model in cluster.js.
@@ -14,6 +20,7 @@ const WORKER_OPTS = {
 
 // OCR a single uploaded image (e.g. a screenshot of a question paper).
 export async function ocrImage(image) {
+  const { createWorker } = await loadTesseract();
   const worker = await createWorker("eng", 1, WORKER_OPTS);
   try {
     const { data } = await worker.recognize(image);
@@ -26,6 +33,7 @@ export async function ocrImage(image) {
 // OCR every page of an already-loaded pdfjs document.
 // `onProgress(done, total)` is optional, for the loading UI.
 export async function ocrDocument(doc, { scale = 2, onProgress } = {}) {
+  const { createWorker } = await loadTesseract();
   const worker = await createWorker("eng", 1, WORKER_OPTS);
   try {
     let text = "";
