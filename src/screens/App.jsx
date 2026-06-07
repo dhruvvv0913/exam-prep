@@ -2,18 +2,29 @@
 // analysis result (persisted so a returning user sees it again). Subjects can
 // also come from the bundled library; star/done progress is kept per subject.
 import React from "react";
-import { C } from "../theme.js";
+import { C, hexA } from "../theme.js";
 import { IconUpload, IconLayers, IconArrow } from "../components/icons.jsx";
 import { Logo, GhostButton } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
-import LandingScreen from "./LandingScreen.jsx";
-import LoadingScreen from "./LoadingScreen.jsx";
-import AnalysisScreen from "./AnalysisScreen.jsx";
-import LibraryScreen from "./LibraryScreen.jsx";
-import AdminScreen from "./AdminScreen.jsx";
+import LandingScreen from "./LandingScreen.jsx"; // eager: first paint
+// The rest are lazy so the heavy analysis engine (transformers, tesseract,
+// pdfjs — pulled in via LoadingScreen) loads only when it's actually needed,
+// keeping the initial bundle small.
+const LoadingScreen = React.lazy(() => import("./LoadingScreen.jsx"));
+const AnalysisScreen = React.lazy(() => import("./AnalysisScreen.jsx"));
+const LibraryScreen = React.lazy(() => import("./LibraryScreen.jsx"));
+const AdminScreen = React.lazy(() => import("./AdminScreen.jsx"));
 import { getSubjectContent } from "../engine/libraryDb.js";
 import { groupViaApi } from "../engine/aiGroup.js";
 import { useAuth } from "../auth.jsx";
+
+// Minimal centered spinner shown while a lazy screen's chunk loads.
+function ScreenFallback() {
+  return (
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="pyq-spin" style={{ width: 34, height: 34, borderRadius: "50%", border: `3px solid ${hexA(C.primary, 0.2)}`, borderTopColor: C.primary }} />
+    </div>);
+}
 
 // Sign-in / account control (hidden until Supabase is configured).
 function Account({ auth }) {
@@ -148,14 +159,16 @@ export default function App() {
       <AuroraBg />
       <TopBar screen={screen} summary={result} fromLibrary={fromLibrary} auth={auth} onHome={home} onReupload={reupload} onBrowse={browse} onAdmin={openAdmin} />
       <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />}
-        {screen === "library" && <LibraryScreen onOpen={openSubject} onUpload={reupload} />}
-        {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
-        {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} onDone={onDone} onError={reupload} />}
-        {screen === "analysis" && (result
-          ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary} fromLibrary={fromLibrary}
-              done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
-          : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
+        <React.Suspense fallback={<ScreenFallback />}>
+          {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />}
+          {screen === "library" && <LibraryScreen onOpen={openSubject} onUpload={reupload} />}
+          {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
+          {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} onDone={onDone} onError={reupload} />}
+          {screen === "analysis" && (result
+            ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary} fromLibrary={fromLibrary}
+                done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
+            : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
+        </React.Suspense>
       </div>
     </div>);
 }
