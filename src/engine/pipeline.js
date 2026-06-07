@@ -28,14 +28,19 @@ async function readPage(file, onProgress) {
 export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = {}) {
   const items = [];
   const papers = [];
+  const skipped = []; // papers we couldn't read or that yielded no questions
 
   for (let i = 0; i < paperFiles.length; i++) {
     const pages = paperFiles[i];
-    onProgress?.({ stage: "reading", paper: pages[0]?.name, index: i, total: paperFiles.length });
+    const name = pages[0]?.name || `Paper ${i + 1}`;
+    onProgress?.({ stage: "reading", paper: name, index: i, total: paperFiles.length });
 
-    // Concatenate every page of this paper into one text blob.
+    // Concatenate every page of this paper into one text blob. A single bad
+    // file (e.g. a corrupt/unsupported PDF) skips just that paper, not the run —
+    // we still push a placeholder so `papers[pIdx]` stays index-aligned.
     let text = "";
     let usedOcr = false;
+    let failed = false;
     try {
       for (const file of pages) {
         const { text: t, ocr } = await readPage(file, onProgress);
@@ -43,16 +48,26 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
         usedOcr = usedOcr || ocr;
       }
     } catch (e) {
-      throw new Error(`Reading paper ${i + 1} failed: ${e.message}`);
+      failed = true;
+      onProgress?.({ stage: "paper-skipped", paper: name, reason: e.message });
     }
 
-    const { meta, questions } = parsePaper(text);
+    const { meta, questions } = failed ? { meta: {}, questions: [] } : parsePaper(text);
     const paperId = `${meta.session ?? meta.examType ?? "Paper"} ${meta.year ?? i + 1}`.trim();
-    papers.push({ pages: pages.length, ...meta, method: usedOcr ? "ocr" : "text", count: questions.length });
+    papers.push({ pages: pages.length, ...meta, name, method: failed ? "failed" : usedOcr ? "ocr" : "text", count: questions.length });
     // pIdx (paper index) = which uploaded paper a question came from.
     for (const q of questions) items.push({ ...q, paperId, year: meta.year, pIdx: i });
+    if (failed || questions.length === 0) skipped.push({ name, reason: failed ? "unreadable" : "no-questions" });
 
     onProgress?.({ stage: "extracted", index: i, total: paperFiles.length, questions: items.length });
+  }
+
+  if (items.length === 0) {
+    throw new Error(
+      skipped.every((s) => s.reason === "unreadable")
+        ? "We couldn't read those files — they may be corrupt, password-protected, or an unsupported format."
+        : "We couldn't find any questions in those papers. If they're scanned images, try clearer scans, or check they're exam papers."
+    );
   }
 
   // Optional: read course slides and extract a deck-level topic taxonomy to
@@ -110,5 +125,6 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     questionCount: items.length,
     paperCount: paperFiles.length,
     topicCount,
+    skipped, // [{ name, reason }] — papers that were unreadable or had no questions
   };
 }
