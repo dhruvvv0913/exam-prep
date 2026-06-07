@@ -120,7 +120,7 @@ function HandoutsZone({ files, onAdd, onRemove }) {
     </div>);
 }
 
-export default function LandingScreen({ papers, handouts, setPapers, setHandouts, onStart, onBrowse }) {
+export default function LandingScreen({ papers, handouts, setPapers, setHandouts, onStart, onBrowse, auth, useAi, setUseAi }) {
   const isMobile = useIsMobile();
   const ready = papers.length > 0;
   const pageCount = papers.reduce((n, p) => n + p.pages.length, 0) + handouts.length;
@@ -160,6 +160,21 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
         <div style={{ fontFamily: C.font, fontSize: 13, color: C.faint, marginTop: 14, minHeight: 18 }}>
           {ready ? `${papers.length} paper${papers.length > 1 ? "s" : ""} · ${pageCount} file${pageCount > 1 ? "s" : ""} ready — we'll analyse next` : "Add at least one past paper to begin"}
         </div>
+
+        {/* AI grouping: signed-in users get the smarter LLM grouping (toggle);
+            visitors see a nudge. Hidden entirely when auth isn't configured. */}
+        {auth?.enabled && (auth.user
+          ? <button onClick={() => setUseAi((v) => !v)} title="AI grouping uses a smarter model for more accurate topics; falls back automatically if unavailable"
+              style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 999, cursor: "pointer", fontFamily: C.font, fontSize: 13, fontWeight: 600, border: `1px solid ${useAi ? hexA(C.primary, 0.4) : C.line}`, background: useAi ? C.primarySoft : "#fff", color: useAi ? C.primary : C.muted }}>
+              <IconSparkle s={14} c={useAi ? C.primary : C.muted} /> AI grouping {useAi ? "on" : "off"}
+              <span style={{ width: 30, height: 16, borderRadius: 999, background: useAi ? C.primary : "#d3d6e6", position: "relative", flex: "0 0 auto" }}>
+                <span style={{ position: "absolute", top: 2, left: useAi ? 16 : 2, width: 12, height: 12, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+              </span>
+            </button>
+          : <button onClick={auth.signInWithGoogle}
+              style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 999, cursor: "pointer", fontFamily: C.font, fontSize: 13, fontWeight: 600, border: `1px solid ${hexA(C.primary, 0.35)}`, background: C.primarySoft, color: C.primary }}>
+              <IconSparkle s={14} c={C.primary} /> Sign in for sharper AI grouping
+            </button>)}
         {onBrowse && (
           <button onClick={onBrowse} style={{ marginTop: 18, fontFamily: C.font, fontSize: 14, fontWeight: 500, color: C.primary, background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
             or browse the subject library <IconArrow s={16} c={C.primary} />

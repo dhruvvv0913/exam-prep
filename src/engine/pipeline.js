@@ -23,7 +23,9 @@ async function readPage(file, onProgress) {
   return { text: await ocrImage(file), ocr: true };
 }
 
-export async function analyze(paperFiles, { onProgress, slideFiles } = {}) {
+// `aiGroup(items, chapters)` is an optional async grouper (the signed-in LLM
+// path); if it throws we fall back to the in-browser embedding grouping.
+export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = {}) {
   const items = [];
   const papers = [];
 
@@ -77,12 +79,26 @@ export async function analyze(paperFiles, { onProgress, slideFiles } = {}) {
     onProgress?.({ stage: "topics", topics: topicCount });
   }
 
-  onProgress?.({ stage: "clustering", questions: items.length, anchored: topics.length > 0 });
-  let clusters;
-  try {
-    clusters = topics.length ? await anchorQuestions(items, topics, { deckOf }) : await clusterQuestions(items);
-  } catch (e) {
-    throw new Error(`Grouping (AI model) failed: ${e.message}`);
+  const chapters = deckOf ? [...new Set(deckOf)] : [];
+  onProgress?.({ stage: "clustering", questions: items.length, anchored: topics.length > 0, ai: !!aiGroup });
+
+  // Preferred path (signed-in): LLM grouping via the backend. On any failure
+  // (offline, quota, not signed in) fall back to the local embedding grouping.
+  let clusters = null;
+  if (aiGroup) {
+    try {
+      clusters = await aiGroup(items, chapters);
+    } catch (e) {
+      onProgress?.({ stage: "ai-fallback", error: e.message });
+      clusters = null;
+    }
+  }
+  if (!clusters) {
+    try {
+      clusters = topics.length ? await anchorQuestions(items, topics, { deckOf }) : await clusterQuestions(items);
+    } catch (e) {
+      throw new Error(`Grouping (AI model) failed: ${e.message}`);
+    }
   }
 
   onProgress?.({ stage: "ranking" });

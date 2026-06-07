@@ -93,6 +93,14 @@ Two ways to produce a subject's `groups`, then publish:
 
 The LLM pass clearly beats in-browser embedding grouping (correct chapter per question, no off-syllabus dumping) and, being admin-side, stays free + campus-safe for students. See `memory/slide-anchored-grouping`.
 
+### AI grouping for self-upload (signed-in students)
+
+Anonymous self-upload uses the free in-browser grouping; **signed-in** users get the same LLM grouping via a same-origin serverless proxy (works on the campus network; the key never reaches the client):
+
+- [api/group.js](api/group.js) — Vercel function: verifies the caller's Supabase token, calls Gemini with the **server-side** `GEMINI_API_KEY` (set in Vercel project env, not `VITE_`-prefixed), returns `{ groups }`. Inert (503 → client falls back) until that env var is set.
+- [aiGroup.js](src/engine/aiGroup.js) — browser: `groupViaApi(items, topics)` POSTs question text + chapters to `/api/group` with the user's token and maps the response to clusters.
+- `App` owns a `useAi` toggle and passes `aiGroup` to `LoadingScreen` only when signed in + on; `pipeline.analyze(…, { aiGroup })` uses it and **falls back to in-browser embedding grouping on any failure** (offline, quota, not deployed). `LandingScreen` shows the AI toggle (signed-in) or a sign-in nudge (anonymous). `/api/group` doesn't run under `vite dev` — use `vercel dev` to exercise it locally (otherwise it just falls back).
+
 ### Deployment
 
 Static **Vercel** deploy, auto-deploys on push to `main`. Use the stable production alias, not the per-deploy hash URLs. Newly published library subjects appear immediately (read from Supabase) without a redeploy.

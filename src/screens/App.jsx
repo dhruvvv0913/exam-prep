@@ -12,6 +12,7 @@ import AnalysisScreen from "./AnalysisScreen.jsx";
 import LibraryScreen from "./LibraryScreen.jsx";
 import AdminScreen from "./AdminScreen.jsx";
 import { getSubjectContent } from "../engine/libraryDb.js";
+import { groupViaApi } from "../engine/aiGroup.js";
 import { useAuth } from "../auth.jsx";
 
 // Sign-in / account control (hidden until Supabase is configured).
@@ -100,6 +101,7 @@ export default function App() {
   const [handouts, setHandouts] = React.useState([]);
   const [result, setResult] = React.useState(saved.result || null); // analysis output
   const [progressKey, setProgressKey] = React.useState(saved.progressKey || "upload");
+  const [useAi, setUseAi] = React.useState(true); // signed-in users get LLM grouping (with local fallback)
   const [done, setDone] = React.useState(() => new Set(readProgress(saved.progressKey || "upload").done));
   const [starred, setStarred] = React.useState(() => new Set(readProgress(saved.progressKey || "upload").starred));
 
@@ -146,14 +148,14 @@ export default function App() {
       <AuroraBg />
       <TopBar screen={screen} summary={result} fromLibrary={fromLibrary} auth={auth} onHome={home} onReupload={reupload} onBrowse={browse} onAdmin={openAdmin} />
       <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />}
+        {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />}
         {screen === "library" && <LibraryScreen onOpen={openSubject} onUpload={reupload} />}
         {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onUpload={reupload} />)}
-        {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} onDone={onDone} onError={reupload} />}
+        {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} onDone={onDone} onError={reupload} />}
         {screen === "analysis" && (result
           ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && !fromLibrary} fromLibrary={fromLibrary}
               done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
-          : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} />)}
+          : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
       </div>
     </div>);
 }

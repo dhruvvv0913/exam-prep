@@ -26,7 +26,7 @@ function StepIcon({ state }) {
   return <div style={{ width: 26, height: 26, borderRadius: "50%", border: `2px solid #d3d6e6`, flex: "0 0 auto" }} />;
 }
 
-export default function LoadingScreen({ papers, slides, onDone, onError }) {
+export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError }) {
   const hasSlides = !!(slides && slides.length);
   // With slides we group AGAINST their topics, so the steps differ.
   const stepDefs = hasSlides
@@ -59,16 +59,18 @@ export default function LoadingScreen({ papers, slides, onDone, onError }) {
 
     analyze(papers, {
       slideFiles: hasSlides ? slides : undefined,
+      aiGroup,
       onProgress: (p) => {
         if (cancelled) return;
         const step = STAGE_STEP[p.stage] ?? 0;
+        if (p.stage === "ai-fallback") { setNote(GROUP_STEP, "AI busy — using built-in grouping"); return; }
         setActive(step);
         if (p.stage === "reading") setNote(0, `${p.index + 1} of ${p.total}`);
         else if (p.stage === "ocr") setNote(0, `scanning page ${p.done}/${p.total}…`);
         else if (p.stage === "extracted") setNote(1, `${p.questions} found`);
         else if (p.stage === "slides") setNote(2, `${p.index + 1} of ${p.total}`);
         else if (p.stage === "topics") setNote(3, `${p.topics} topic${p.topics === 1 ? "" : "s"} found`);
-        else if (p.stage === "clustering") setNote(GROUP_STEP, p.anchored ? "matching to topics…" : "grouping…");
+        else if (p.stage === "clustering") setNote(GROUP_STEP, p.ai ? "grouping with AI…" : p.anchored ? "matching to topics…" : "grouping…");
       },
     })
       .then((result) => {
