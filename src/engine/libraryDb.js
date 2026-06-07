@@ -95,13 +95,28 @@ export async function revokeAccess(email, subjectId) {
 // --- community contributions (students submit; admin reviews) -----------
 const slug = (s) => (s || "subject").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "subject";
 
+// A soft cap on how many contributions one user can have awaiting review, so a
+// single user can't flood the admin queue. Enforced here (client + RLS lets the
+// user read their own rows); the admin can always approve/reject to free slots.
+const MAX_PENDING_CONTRIBUTIONS = 10;
+
 // Any signed-in user can submit. `targetSubjectId` set => "pool into" that
 // subject; null => propose a brand-new subject.
 export async function submitContribution(meta, content, targetSubjectId = null) {
   if (!supabase) throw new Error("Sign-in required");
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign-in required");
+  // Soft per-user cap. Count only this user's still-pending rows; fail open on a
+  // count error so a transient hiccup never blocks a legitimate submission.
+  const { count, error: countErr } = await supabase
+    .from("contributions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("status", "pending");
+  if (!countErr && (count || 0) >= MAX_PENDING_CONTRIBUTIONS)
+    throw new Error(`You already have ${count} contributions awaiting review — please wait for those before sending more.`);
   const { error } = await supabase.from("contributions").insert({
-    email: user?.email || null, title: meta.title, code: meta.code || null,
+    email: user.email || null, title: meta.title, code: meta.code || null,
     target_subject_id: targetSubjectId, content,
   });
   if (error) throw error;

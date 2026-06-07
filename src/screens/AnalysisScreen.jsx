@@ -96,6 +96,11 @@ function ContributeModal({ defaults, content, onClose }) {
   const dialogRef = useDismissable(onClose);
   const field = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none", width: "100%", boxSizing: "border-box" };
   const lab = { fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: C.ink2, margin: "12px 0 5px" };
+  // If the typed name looks like a subject that already exists, nudge the user
+  // to *pool* into it instead of spawning a near-duplicate subject.
+  const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const nt = norm(title);
+  const dup = !target && nt.length > 3 ? subjects.find((s) => { const ns = norm(s.subject); return ns === nt || ns.includes(nt) || nt.includes(ns); }) : null;
   const submit = async () => {
     if (!title.trim()) { setMsg({ k: "err", t: "A subject name is required." }); return; }
     setBusy(true); setMsg(null);
@@ -118,6 +123,12 @@ function ContributeModal({ defaults, content, onClose }) {
         <input value={title} onChange={(e) => setTitle(e.target.value)} style={field} />
         <div style={lab}>Code (optional)</div>
         <input value={code} onChange={(e) => setCode(e.target.value)} style={field} />
+        {dup && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontFamily: C.font, fontSize: 12.5, color: C.ink2, background: C.primarySoft, border: `1px solid ${hexA(C.primary, 0.25)}`, borderRadius: 10, padding: "9px 12px", margin: "12px 0 0", lineHeight: 1.45 }}>
+            <span style={{ flex: 1, minWidth: 160 }}>“{dup.subject}” already exists — pooling your papers into it keeps repeats together instead of splitting the subject.</span>
+            <button onClick={() => setTarget(dup.id)} style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: "#fff", background: C.primary, border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", flex: "0 0 auto" }}>Add to it</button>
+          </div>
+        )}
         <div style={lab}>Add to an existing subject? (optional)</div>
         <select value={target} onChange={(e) => setTarget(e.target.value)} style={{ ...field, cursor: "pointer" }}>
           <option value="">No — propose it as a new subject</option>
