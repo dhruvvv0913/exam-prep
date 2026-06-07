@@ -50,6 +50,13 @@ test("drops 'Answer the following questions' instruction headers", () => {
   assert.ok(!questions.some((q) => /answer the following/i.test(q.text)));
 });
 
+test("strips model answers in solution PDFs (incl. en-dash separator)", () => {
+  const out = splitQuestions("1. Define cache memory and its purpose. Solution – Cache is a fast memory between the CPU and RAM. mark for definition");
+  assert.equal(out.length, 1);
+  assert.match(out[0].text, /Define cache memory/);
+  assert.ok(!/Solution|fast memory|mark for/i.test(out[0].text), "the model answer must be removed");
+});
+
 test("very short / empty stems are discarded", () => {
   const out = splitQuestions("1. ok\n2. Explain the working of a hardwired control unit in detail.");
   assert.equal(out.length, 1); // "ok" is < 8 chars after cleaning

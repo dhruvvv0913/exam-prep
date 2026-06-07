@@ -96,7 +96,9 @@ function cleanSubject(s) {
 const cleanText = (s) =>
   s
     // Drop any model answer in solution PDFs: keep only the question stem.
-    .replace(/\b(Ans(wer)?|Solution|Note)\b\s*[-:.].*$/is, " ")
+    // The separator may be a hyphen, colon, period, or an en/em-dash (– —),
+    // which KIIT solution sheets use ("Solution – ...").
+    .replace(/\b(Ans(wer)?|Solution|Note)\b\s*[-–—:.].*$/is, " ")
     // OCR noise from scans:
     .replace(/Page\s*\d+\s*\/\s*\d+/gi, " ") // "Page 5 / 7" footers
     .replace(/K[\w-]{0,4}D[uU][\s\S]*$/g, " ") // "KIIT-DU/2025/..." exam footer to end
@@ -115,6 +117,9 @@ const cleanText = (s) =>
 
 // Line starting a numbered question, optionally with an inline part:
 //   "1. (a) text"  |  "1. text"  |  "4."
+// NOTE: kept deliberately strict ("1." + "(a)"). Broadening to "1)"/"a)" was
+// tried and reverted — it doubled the question count on KIIT *solution* sheets
+// by matching answer-list bullets ("a) ...", "1) ...") as new questions.
 const Q_NUM = /^(\d{1,2})\.\s*(?:\(([a-z])\)\s*)?(.*)$/i;
 // Line starting a part of the current question: "(a) text"
 const Q_PART = /^\(([a-z])\)\s*(.*)$/i;
