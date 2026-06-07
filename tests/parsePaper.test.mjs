@@ -1,7 +1,7 @@
 // Tests for paper metadata detection + question splitting.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parsePaper, splitQuestions } from "../src/engine/parsePaper.js";
+import { parsePaper, splitQuestions, assessSolutionSheet } from "../src/engine/parsePaper.js";
 
 const PAPER = `END SEMESTER EXAMINATION 2024
 SPRING
@@ -61,4 +61,37 @@ test("very short / empty stems are discarded", () => {
   const out = splitQuestions("1. ok\n2. Explain the working of a hardwired control unit in detail.");
   assert.equal(out.length, 1); // "ok" is < 8 chars after cleaning
   assert.match(out[0].text, /hardwired control/i);
+});
+
+test("assessSolutionSheet: a normal question paper is NOT flagged", () => {
+  const r = assessSolutionSheet(PAPER, parsePaper(PAPER).questions.length);
+  assert.equal(r.isSolution, false);
+  // parsePaper exposes the same flag on meta
+  assert.equal(parsePaper(PAPER).meta.solution, false);
+});
+
+test("assessSolutionSheet: a lone 'Answer:' does not trip detection", () => {
+  const text = "1. Define cache memory. Answer: a fast buffer.\n2. Explain pipelining in detail.\n3. Describe DMA transfers.";
+  assert.equal(assessSolutionSheet(text, 3).isSolution, false);
+});
+
+test("assessSolutionSheet: an explicit 'Marking Scheme' header is flagged", () => {
+  assert.equal(assessSolutionSheet("MARKING SCHEME\n1. Define cache memory.").isSolution, true);
+});
+
+test("assessSolutionSheet: pervasive per-question model answers are flagged", () => {
+  const sheet = [
+    "1. Define cache memory. Solution – a fast buffer between CPU and RAM.",
+    "2. Explain virtual memory. Solution – translation of virtual to physical.",
+    "3. What is a TLB? Ans: a cache of page-table entries.",
+    "4. Describe DMA. Solution — direct memory access without the CPU.",
+  ].join("\n");
+  const r = assessSolutionSheet(sheet, parsePaper(sheet).questions.length);
+  assert.equal(r.isSolution, true);
+  assert.ok(r.markers >= 4, "should count the per-question answer separators");
+});
+
+test("'Answer all the questions' instruction is not counted as an answer", () => {
+  // No separator after the word, so markers stay 0 and it isn't flagged.
+  assert.equal(assessSolutionSheet("1. Answer all the questions\n(a) What is X?\n(b) Define Y.", 2).markers, 0);
 });

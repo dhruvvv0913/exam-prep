@@ -67,6 +67,7 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
         const step = STAGE_STEP[p.stage] ?? 0;
         if (p.stage === "ai-fallback") { setNote(GROUP_STEP, "AI busy — using built-in grouping"); return; }
         if (p.stage === "paper-skipped") { setNote(0, `skipped ${p.paper} — unreadable`); return; }
+        if (p.stage === "paper-warning") { setNote(1, "answer key detected — see note after"); return; }
         setActive(step);
         if (p.stage === "reading") setNote(0, `${p.index + 1} of ${p.total}`);
         else if (p.stage === "ocr") setNote(0, `scanning page ${p.done}/${p.total}…`);

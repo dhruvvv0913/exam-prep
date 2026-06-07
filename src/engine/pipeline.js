@@ -29,6 +29,7 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
   const items = [];
   const papers = [];
   const skipped = []; // papers we couldn't read or that yielded no questions
+  const warnings = []; // papers we analysed but flagged (e.g. answer keys)
 
   for (let i = 0; i < paperFiles.length; i++) {
     const pages = paperFiles[i];
@@ -58,6 +59,11 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     // pIdx (paper index) = which uploaded paper a question came from.
     for (const q of questions) items.push({ ...q, paperId, year: meta.year, pIdx: i });
     if (failed || questions.length === 0) skipped.push({ name, reason: failed ? "unreadable" : "no-questions" });
+    // Analysed fine, but it looks like an answer key — warn (non-destructive).
+    else if (meta.solution) {
+      warnings.push({ name, reason: "solution-sheet" });
+      onProgress?.({ stage: "paper-warning", paper: name, reason: "solution-sheet" });
+    }
 
     onProgress?.({ stage: "extracted", index: i, total: paperFiles.length, questions: items.length });
   }
@@ -126,5 +132,6 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     paperCount: paperFiles.length,
     topicCount,
     skipped, // [{ name, reason }] — papers that were unreadable or had no questions
+    warnings, // [{ name, reason }] — analysed but flagged (e.g. "solution-sheet")
   };
 }

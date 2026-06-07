@@ -411,6 +411,12 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           </div>
         )}
 
+        {data.warnings?.length > 0 && (
+          <div style={{ fontFamily: C.font, fontSize: 13, color: C.ink2, background: C.goldSoft, border: `1px solid ${hexA(C.gold, 0.3)}`, borderRadius: 12, padding: "11px 14px", marginBottom: 16, lineHeight: 1.5 }}>
+            <strong>{data.warnings.length === 1 ? "This looks like an answer key" : `${data.warnings.length} files look like answer keys`}</strong> — {data.warnings.map((w) => w.name).join(", ")}. We've analysed {data.warnings.length === 1 ? "it" : "them"} anyway, but model answers can blur the grouping — for the sharpest repeats, upload the <strong>question paper</strong> instead.
+          </div>
+        )}
+
         {allGroups.length > 0 && (
           <Tip id="analysis-views" title="Two ways to study these">
             Use the toggle to switch between <strong>By topic</strong> (ranked by what repeats) and <strong>By paper</strong> (each exam in full). Tap the paper or topic chip on any question to jump between the two.

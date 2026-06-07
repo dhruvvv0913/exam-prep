@@ -200,7 +200,34 @@ export function splitQuestions(text) {
   return out;
 }
 
+// ---- solution-sheet detection ------------------------------------------
+// Decide whether an uploaded PDF is really an *answer key / solution sheet*
+// rather than a question paper. Such PDFs still parse (cleanText strips the
+// "Solution – …" model answers, keeping the stems), but the written answers
+// blur the grouping and inflate counts, so we warn the user to prefer the
+// question paper. Pure + Node-safe; runs on the RAW extracted text.
+//
+//   questionCount — how many questions splitQuestions() found (for the ratio).
+// Returns { isSolution, markers, explicit }.
+export function assessSolutionSheet(text, questionCount = 0) {
+  const t = text || "";
+  // An explicit answer-key header is conclusive on its own.
+  const explicit = /\b(marking\s+scheme|model\s+answers?|answer\s+key|scheme\s+of\s+(?:valuation|evaluation)|solution\s+sheet)\b/i.test(t);
+  // Per-question model-answer lead-ins: "Solution –", "Ans:", "Answer -",
+  // "Soln.". This is the same separator cleanText strips, so counting it
+  // estimates how many questions carry a written answer. The separator char
+  // after the word is required, so the instruction "Answer all the questions"
+  // (word followed by a space, not a separator) is NOT counted.
+  const markers = (t.match(/\b(?:Ans(?:wer)?|Soln?|Solution)\b\s*[-–—:.]/gi) || []).length;
+  // Pervasive = a lot of answers in absolute terms, OR enough to cover ~half the
+  // detected questions (so a lone stray "Answer:" in a normal paper won't trip).
+  const pervasive = markers >= 6 || (markers >= 3 && questionCount > 0 && markers >= Math.ceil(questionCount * 0.5));
+  return { isSolution: explicit || pervasive, markers, explicit };
+}
+
 // ---- public entry point ------------------------------------------------
 export function parsePaper(text) {
-  return { meta: parseMeta(text), questions: splitQuestions(text) };
+  const meta = parseMeta(text);
+  const questions = splitQuestions(text);
+  return { meta: { ...meta, solution: assessSolutionSheet(text, questions.length).isSolution }, questions };
 }

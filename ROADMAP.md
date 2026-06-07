@@ -14,6 +14,8 @@ vision and the big technical decisions live in `memory/` and `CLAUDE.md`.)
 | **Performance** | Code-split screens behind `Suspense`; initial JS **1.81 MB → 385 KB** (engine loads on demand). | `0cd418a` |
 | **Library** | Search/filter subjects by name/code (appears once there are >3). | `f9bfa59` |
 | **Library growth** | Pivoted from admin hand-curation to a self-growing model: **My Library** (users save their own analyses, private), **community contributions** (users submit a new subject for admin review), and **pooling** (add papers to an existing subject; admin merge). | `3108c9f`, `9b3dfc3` |
+| **Mobile** | Wrapped the analysis-header action row and loading step rows so a signed-in student's buttons / a long progress note can't overflow on a narrow phone. | `ec488ce` |
+| **Solution-sheet detection** | `assessSolutionSheet()` flags answer keys (explicit "Marking Scheme/Model Answer" header, or "Solution –"/"Ans:" lead-ins on ≥50% of questions / ≥6 absolute) → `meta.solution` → a non-destructive `warnings` banner telling the user to prefer the question paper. Validated on real COA papers (2023.pdf solution sheet flags; question papers don't). | *next push* |
 
 ## Recommended next (roughly by value)
 
@@ -21,7 +23,7 @@ vision and the big technical decisions live in `memory/` and `CLAUDE.md`.)
 2. **Delete the junk `i-environmental-sciences` library subject** — leftover test data with an OCR-garbled name. (Admin screen → Delete, or a small script flag.)
 3. **Contribution quality controls** — basic moderation is the admin queue; consider dedup (two contributions of the same subject), a per-user submission cap, and auto-merging same-topic groups on pool (today the admin tidies those in the review screen).
 3. **Per-user AI rate limit** on `/api/group` — today it only requires sign-in; the free Gemini ceiling (~1500/day shared) is the only cap. Add a small Supabase table (`user_id, day, count`) and reject past N/day so one user can't drain the quota.
-4. **Solution-sheet handling** — model-answer bullets ("Operating System – …", "Clock Speed – …") still parse as pseudo-questions and pollute grouping. Options: detect "this is a solution sheet" (high `mark for`/`Solution` density) and warn the user to upload the question paper, or strip "Term – explanation" answer bullets (risky — needs care).
+4. **Solution-sheet handling — DONE (detect + warn).** `assessSolutionSheet()` now flags answer keys and the analysis screen warns the user to upload the question paper. Still open (riskier): actually *stripping* stray "Term – explanation" answer bullets that slip through as pseudo-questions, and detecting solution sheets that have **no** explicit header and few separators (pure OCR scans of hand-marked scripts).
 5. **OCR acronym-gibberish** — slide-title extraction lets through OCR garble like "OSGN OSPN" (the vowel filter misses it because "O" is a vowel). A dictionary/real-word check would help but risks dropping legit all-caps titles ("BUS STRUCTURE").
 6. **More numbering formats** — supporting `1)` / `Q1.` would help non-KIIT papers, but needs real alt-format samples to tune without regressing solution sheets. Gather a few first, then add with tests.
 7. **Further bundle splitting** — the engine chunk is still ~1.34 MB. Tesseract (OCR) is only needed for scanned/image papers; lazy-load it inside `ocr.js` so text-layer PDFs never download it.
