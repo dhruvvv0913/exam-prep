@@ -2,6 +2,11 @@ html, body { margin: 0; height: 100%; background: #edeffa; }
 #root { height: 100%; }
 * { box-sizing: border-box; }
 button { font-family: inherit; }
+
+/* Visible keyboard focus everywhere (mouse clicks won't show the ring, thanks
+   to :focus-visible). Covers native controls + our role="button" card headers. */
+:focus-visible { outline: 2px solid #3f51c4; outline-offset: 2px; border-radius: 4px; }
+button:focus:not(:focus-visible), [role="button"]:focus:not(:focus-visible) { outline: none; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #d3d6e6; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: #b9bdd6; background-clip: content-box; }

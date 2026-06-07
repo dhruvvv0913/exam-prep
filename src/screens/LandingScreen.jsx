@@ -169,7 +169,7 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
         {/* AI grouping: signed-in users get the smarter LLM grouping (toggle);
             visitors see a nudge. Hidden entirely when auth isn't configured. */}
         {auth?.enabled && (auth.user
-          ? <button onClick={() => setUseAi((v) => !v)} title="AI grouping uses a smarter model for more accurate topics; falls back automatically if unavailable"
+          ? <button onClick={() => setUseAi((v) => !v)} aria-pressed={useAi} title="AI grouping uses a smarter model for more accurate topics; falls back automatically if unavailable"
               style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 999, cursor: "pointer", fontFamily: C.font, fontSize: 13, fontWeight: 600, border: `1px solid ${useAi ? hexA(C.primary, 0.4) : C.line}`, background: useAi ? C.primarySoft : "#fff", color: useAi ? C.primary : C.muted }}>
               <IconSparkle s={14} c={useAi ? C.primary : C.muted} /> AI grouping {useAi ? "on" : "off"}
               <span style={{ width: 30, height: 16, borderRadius: 999, background: useAi ? C.primary : "#d3d6e6", position: "relative", flex: "0 0 auto" }}>

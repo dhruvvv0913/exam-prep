@@ -82,7 +82,7 @@ function PublishModal({ defaults, content, onClose }) {
 
 function ToggleChip({ active, onClick, children }) {
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} aria-pressed={active} style={{
       fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "8px 14px", borderRadius: 999, cursor: "pointer",
       border: `1px solid ${active ? "transparent" : C.line}`, color: active ? "#fff" : C.ink2,
       background: active ? C.primary : "#fff", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
@@ -112,8 +112,11 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
       onMouseEnter={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowMd; }}
       onMouseLeave={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowSm; }}
       style={{ background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
-      {/* header (click anywhere to collapse/expand) */}
-      <div onClick={onToggle} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
+      {/* header (click / Enter / Space to collapse/expand) */}
+      <div onClick={onToggle} role="button" tabIndex={0} aria-expanded={!collapsed}
+        aria-label={`${cluster.topic} — ${collapsed ? "expand" : "collapse"}`}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+        style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
         <div style={{
           width: 30, height: 30, flex: "0 0 auto", borderRadius: "50%", marginTop: 1,
           background: unique ? "#f1f2f8" : (rank === 1 ? C.grad : C.primarySoft),
@@ -170,7 +173,10 @@ function PaperCard({ paper, label, collapsed, onToggle, onTopicClick, flash }) {
       onMouseEnter={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowMd; }}
       onMouseLeave={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowSm; }}
       style={{ background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", transition: "box-shadow .2s, border-color .2s", animation: "rise .4s ease backwards", scrollMarginTop: 12 }}>
-      <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
+      <div onClick={onToggle} role="button" tabIndex={0} aria-expanded={!collapsed}
+        aria-label={`${label} — ${collapsed ? "expand" : "collapse"}`}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+        style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
         <div style={{ width: 34, height: 34, flex: "0 0 auto", borderRadius: 10, background: C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}><IconFile s={17} c={C.primary} /></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: C.font, fontSize: 16, fontWeight: 600, color: C.ink, lineHeight: 1.3, textWrap: "pretty" }}>{label}</div>
@@ -197,7 +203,7 @@ function PaperCard({ paper, label, collapsed, onToggle, onTopicClick, flash }) {
 // Segmented control: topic-grouping vs paper-grouping.
 function ViewToggle({ view, onChange }) {
   const opt = (val, label) => (
-    <button onClick={() => onChange(val)} style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "7px 16px", borderRadius: 999, cursor: "pointer", border: "none", background: view === val ? "#fff" : "transparent", color: view === val ? C.primary : C.muted, boxShadow: view === val ? C.shadowSm : "none", transition: "color .15s, background .15s" }}>{label}</button>
+    <button onClick={() => onChange(val)} aria-pressed={view === val} style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "7px 16px", borderRadius: 999, cursor: "pointer", border: "none", background: view === val ? "#fff" : "transparent", color: view === val ? C.primary : C.muted, boxShadow: view === val ? C.shadowSm : "none", transition: "color .15s, background .15s" }}>{label}</button>
   );
   return (
     <div style={{ display: "inline-flex", gap: 3, padding: 3, background: "#eef0f8", borderRadius: 999, border: `1px solid ${C.line}` }}>
