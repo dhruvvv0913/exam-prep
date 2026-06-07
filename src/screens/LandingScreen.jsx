@@ -6,6 +6,7 @@ import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconUpload, IconFile, IconCheck, IconArrow, IconPlus, IconSparkle, IconClose } from "../components/icons.jsx";
 import { Tag, PrimaryButton, FloatField } from "../components/atoms.jsx";
+import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,image/*";
@@ -148,6 +149,10 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
               <IconCheck s={11} c={C.good} sw={2.8} /> {t}
             </span>))}
         </div>
+
+        <Tip id="landing-slides" title="Tip: add your slides for better results">
+          Drop your course slides (PPTs, as PDF) into the <strong>“Course slides &amp; handouts”</strong> box — we'll group questions under your real syllabus topics instead of guessing.{!auth?.user && auth?.enabled ? <React.Fragment> And <strong>sign in</strong> to unlock the sharper AI grouping.</React.Fragment> : null}
+        </Tip>
 
         <div style={{ display: "flex", gap: 20, width: "100%", marginBottom: 30, alignItems: "flex-start", flexWrap: "wrap" }}>
           <PapersZone papers={papers} setPapers={setPapers} />

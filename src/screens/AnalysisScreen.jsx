@@ -6,6 +6,7 @@ import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose, IconFile } from "../components/icons.jsx";
 import { Tag, HeatBar, GhostButton, PrimaryButton } from "../components/atoms.jsx";
+import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { summarize, byPaper } from "../engine/rank.js";
 import { publishSubject } from "../engine/libraryDb.js";
@@ -327,6 +328,12 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, fromLibr
             {canSave && <GhostButton onClick={() => setShowPublish(true)}><IconUpload s={15} c={C.ink2} /> Publish to library</GhostButton>}
           </div>
         </div>
+
+        {allGroups.length > 0 && (
+          <Tip id="analysis-views" title="Two ways to study these">
+            Use the toggle to switch between <strong>By topic</strong> (ranked by what repeats) and <strong>By paper</strong> (each exam in full). Tap the paper or topic chip on any question to jump between the two.
+          </Tip>
+        )}
 
         {/* topic vs paper view toggle */}
         {allGroups.length > 0 && (
