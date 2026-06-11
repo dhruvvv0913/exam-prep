@@ -37,7 +37,9 @@ export async function listMySubjects() {
     .from("my_subjects")
     .select("id,title,code,paper_count,question_count,topic_count,created_at")
     .order("created_at", { ascending: false });
-  if (error) return [];
+  // Don't fail the screen, but make the cause visible (e.g. a missing table or
+  // an RLS error) instead of silently showing an empty library.
+  if (error) { console.error("listMySubjects failed:", error.message || error); return []; }
   return data || [];
 }
 
@@ -49,9 +51,15 @@ export async function getMySubject(id) {
 }
 
 export async function saveMySubject(meta, content) {
+  if (!supabase) throw new Error("Sign-in required");
+  // Set user_id explicitly rather than trusting the column's `default auth.uid()`
+  // to fire — a row saved with a null owner would never come back from the
+  // `user_id = auth.uid()` read policy, i.e. it'd silently vanish on reload.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign-in required");
   const { data, error } = await supabase
     .from("my_subjects")
-    .insert({ title: meta.title, code: meta.code || null, paper_count: meta.paperCount, question_count: meta.questionCount, topic_count: meta.topicCount, content })
+    .insert({ user_id: user.id, title: meta.title, code: meta.code || null, paper_count: meta.paperCount, question_count: meta.questionCount, topic_count: meta.topicCount, content })
     .select("id")
     .single();
   if (error) throw error;
@@ -116,7 +124,7 @@ export async function submitContribution(meta, content, targetSubjectId = null) 
   if (!countErr && (count || 0) >= MAX_PENDING_CONTRIBUTIONS)
     throw new Error(`You already have ${count} contributions awaiting review — please wait for those before sending more.`);
   const { error } = await supabase.from("contributions").insert({
-    email: user.email || null, title: meta.title, code: meta.code || null,
+    user_id: user.id, email: user.email || null, title: meta.title, code: meta.code || null,
     target_subject_id: targetSubjectId, content,
   });
   if (error) throw error;
