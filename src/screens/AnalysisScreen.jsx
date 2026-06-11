@@ -270,8 +270,80 @@ function ViewToggle({ view, onChange }) {
     </div>);
 }
 
+// Open an in-memory uploaded File in a new browser tab via an object URL.
+// Self-upload only — files aren't persisted (see App), so this is session-scoped.
+function openFile(file) {
+  try {
+    const url = URL.createObjectURL(file);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60000); // let the new tab load first
+  } catch (e) { console.error("open file failed", e); }
+}
+
+// "View uploaded files" disclosure at the top of the results (self-upload only):
+// lists the uploaded papers + slides; clicking a name opens that ORIGINAL file
+// in a new tab. Hidden for library/saved subjects (no files held in memory).
+function SourcesBar({ sources }) {
+  const [open, setOpen] = React.useState(false);
+  const papers = sources?.papers || [];
+  const slides = sources?.slides || [];
+  if (!papers.length && !slides.length) return null;
+  const lab = { fontFamily: C.font, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: C.faint, margin: "0 0 7px" };
+  const link = (file, label, key) => (
+    <button key={key} onClick={() => openFile(file)} title={`Open ${file.name} in a new tab`}
+      style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: C.primary, background: C.primarySoft, border: "none", borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, maxWidth: 280 }}>
+      <IconFile s={11} c={C.primary} />
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      <span aria-hidden style={{ opacity: 0.7 }}>↗</span>
+    </button>
+  );
+  const counts = `${papers.length} paper${papers.length !== 1 ? "s" : ""}${slides.length ? ` · ${slides.length} slide${slides.length !== 1 ? "s" : ""}` : ""}`;
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+        <IconFile s={14} c={C.ink2} /> View uploaded files
+        <span style={{ color: C.faint, fontWeight: 500 }}>{counts}</span>
+        <IconChevron s={14} c={C.faint} dir={open ? "up" : "down"} />
+      </button>
+      {open && (
+        <div style={{ marginTop: 10, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+          {papers.length > 0 && (
+            <div>
+              <div style={lab}>Papers</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {papers.map((p, i) => {
+                  const pages = p.pages || [];
+                  const first = pages[0];
+                  if (!first) return null;
+                  if (pages.length === 1) return link(first, first.name, p.id || i);
+                  return (
+                    <div key={p.id || i} style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.ink2 }}>{first.name} · {pages.length} pages:</span>
+                      {pages.map((f, j) => link(f, `p${j + 1}`, `${p.id || i}-${j}`))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {slides.length > 0 && (
+            <div>
+              <div style={lab}>Slides</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {slides.map((f, i) => link(f, f.name, `s${i}`))}
+              </div>
+            </div>
+          )}
+          <div style={{ fontFamily: C.font, fontSize: 11.5, color: C.faint }}>Opens the original file in a new tab · available this session only.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- screen ------------------------------------------------------------
-export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveMine, fromLibrary, done, starred, onToggleDone, onToggleStar }) {
+export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveMine, fromLibrary, sources, done, starred, onToggleDone, onToggleStar }) {
   const paperCount = data.paperCount;
   const [editing, setEditing] = React.useState(false);
   // collapsed by id; default = the "asked once" groups start collapsed.
@@ -424,6 +496,8 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
             {canSave && <GhostButton onClick={() => setShowPublish(true)}><IconUpload s={15} c={C.ink2} /> Publish to library</GhostButton>}
           </div>
         </div>
+
+        {sources && <SourcesBar sources={sources} />}
 
         {data.skipped?.length > 0 && (
           <div style={{ fontFamily: C.font, fontSize: 13, color: C.ink2, background: C.goldSoft, border: `1px solid ${hexA(C.gold, 0.3)}`, borderRadius: 12, padding: "11px 14px", marginBottom: 16, lineHeight: 1.5 }}>

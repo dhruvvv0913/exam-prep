@@ -185,6 +185,7 @@ export default function App() {
           {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} onDone={onDone} onError={reupload} />}
           {screen === "analysis" && (result
             ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && fromUpload} canSaveMine={!!auth.user && fromUpload} fromLibrary={fromLibrary}
+                sources={fromUpload ? { papers, slides: handouts } : null}
                 done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
             : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
         </React.Suspense>
