@@ -44,15 +44,19 @@ async function ocr(doc) {
 }
 
 const items = [];
-for (const path of process.argv.slice(2)) {
+const paths = process.argv.slice(2);
+for (let i = 0; i < paths.length; i++) {
+  const path = paths[i];
   const doc = await getDocument({ data: new Uint8Array(readFileSync(path)), useSystemFonts: true }).promise;
   let text = await textLayer(doc);
   let method = "text";
   if (!isUsableText(text)) { text = await ocr(doc); method = "ocr"; }
   const { meta, questions } = parsePaper(text);
-  const paperId = `${meta.session ?? meta.examType} ${meta.year}`;
+  const paperId = `${meta.session ?? meta.examType ?? "Paper"} ${meta.year ?? i + 1}`.trim();
   console.error(`  ${path.split(/[\\/]/).pop()} [${method}] -> ${meta.subject} | ${questions.length} questions`);
-  for (const q of questions) items.push({ ...q, paperId, year: meta.year, marks: meta.fullMarks === 50 ? "5 marks" : "" });
+  // pIdx (which uploaded paper) is what the production pipeline sets and what
+  // the "appears" repeat-count keys on — set it here too or repeats vanish.
+  for (const q of questions) items.push({ ...q, paperId, year: meta.year, pIdx: i });
 }
 
 console.log(`\nClustering ${items.length} questions...`);

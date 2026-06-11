@@ -6,9 +6,9 @@
 // clusterCore.js (Node-safe, unit-tested) and is re-exported here so existing
 // importers (pipeline, scripts) keep working unchanged.
 import { pipeline, env } from "@xenova/transformers";
-import { clusterVectors, anchorVectors } from "./clusterCore.js";
+import { clusterVectors, anchorVectors, anchorAndClusterVectors } from "./clusterCore.js";
 
-export { clusterVectors, anchorVectors, extractKeywords, dot } from "./clusterCore.js";
+export { clusterVectors, anchorVectors, anchorAndClusterVectors, extractKeywords, dot, NOT_ON_SLIDES } from "./clusterCore.js";
 
 // Fully self-hosted: load the model and the ONNX-runtime WASM from our OWN
 // origin (files live in public/models and public/ort), never an external CDN.
@@ -60,4 +60,13 @@ export async function anchorQuestions(items, topics, opts = {}) {
   const qVecs = await embed(items.map((q) => q.text), opts);
   const topicVecs = await embed(topics, opts);
   return anchorVectors(items, qVecs, topics, topicVecs, opts);
+}
+
+// Fine grouping: anchor to a deck, then sub-cluster into question types within
+// each deck. Returns [{ deck, items }] (see anchorAndClusterVectors). This is
+// the path the pipeline uses when slides are uploaded.
+export async function anchorAndClusterQuestions(items, topics, opts = {}) {
+  const qVecs = await embed(items.map((q) => q.text), opts);
+  const topicVecs = await embed(topics, opts);
+  return anchorAndClusterVectors(items, qVecs, topics, topicVecs, opts);
 }

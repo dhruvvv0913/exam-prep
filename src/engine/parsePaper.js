@@ -25,6 +25,8 @@ const NOISE = [
   /^Section\s+[ABC]\s+(is\s+compulsory|b\s+corrr)/i,
   /^SECTION\s*-?\s*[ABC]\b/i,
   /^School\s+of\b/i,
+  /B\.?\s*Tech\s*\(/i,                  // "B. Tech (CSE/IT/CSCE/...)" course/branch header
+  /^[A-Za-z]{2,6}\s*\/\s*[A-Za-z]{1,4}\s*\d{3,4}\s*\//, // "COA/ CS 2006/..." paper header line
   /Kalinga\s+Institute/i,
   /Deemed\s+to\s+be\s+University/i,
   /^K[I1]+T[\s-]*DU/i, // footer: KIIT-DU/2025/SOT...
@@ -48,9 +50,13 @@ const isNoise = (l) => NOISE.some((re) => re.test(l)) || MARKS_ONLY.test(l);
 // ---- metadata ----------------------------------------------------------
 // A line that could be the subject title (works for ALL-CAPS and Title Case).
 function looksLikeTitle(l) {
-  if (l.length < 4 || isNoise(l)) return false;
-  if (/EXAMINATION|SEMESTER|^Qn|B\.?Tech|Branch|Programme|Admitted|Marks|Time\s*:/i.test(l)) return false;
+  if (l.length < 4 || l.length > 60 || isNoise(l)) return false;
+  if (!/^[A-Za-z]/.test(l)) return false;          // titles start with a letter (not "1)" / "(")
+  if (/[[\]?]/.test(l)) return false;              // marks brackets "[ 1 × 5 ]" / questions
+  if (/\.\s*$/.test(l)) return false;              // a trailing period ⇒ a sentence, not a title
+  if (/EXAMINATION|SEMESTER|^Qn|B\.?Tech|Branch|Programme|Admitted|Marks|Time\s*:|University|Institute|Bhubaneswar|School\s+of|compulsory|Answer\s+(any|all|the)|figures\s+in/i.test(l)) return false;
   if (/&/.test(l) || (l.match(/,/g) || []).length >= 2) return false; // branch lists
+  if (l.split(/\s+/).length > 8) return false;     // titles are short noun phrases, not prose
   return /[A-Za-z]{5,}/.test(l); // has a real word
 }
 
@@ -61,8 +67,19 @@ function parseMeta(text) {
   const examType = (/(MID|END)\s+SEMESTER/i.exec(text) || [])[1]?.toUpperCase() || null;
   const sessM = /\b(SPRING|AUTUMN|WINTER|SUMMER|FALL)\b/i.exec(text);
   const session = sessM ? sessM[1][0].toUpperCase() + sessM[1].slice(1).toLowerCase() : null;
-  const yM = /EXAMINATION[.\-\s]*([12][0-9O][0-9O]{2})/i.exec(text) || /\b([12][0O]\d{2})\b/.exec(text);
-  const year = yM ? Number(yM[1].replace(/O/gi, "0")) : null;
+  // Year: prefer one adjacent to "EXAMINATION"; otherwise pick the LATEST
+  // plausible year in the header — so a curriculum/course-code year ("COA/ CS
+  // 2006/…") doesn't beat the real exam year ("…/4th/2019").
+  let year = null;
+  const yAdj = /EXAMINATION[.\-\s]*([12][0-9O][0-9O]{2})/i.exec(text);
+  if (yAdj) {
+    year = Number(yAdj[1].replace(/O/gi, "0"));
+  } else {
+    const head = lines.slice(0, 15).join(" ");
+    const cands = [...head.matchAll(/\b([12][0O]\d{2})\b/g)].map((m) => Number(m[1].replace(/O/gi, "0")));
+    const ok = cands.filter((y) => y >= 2000 && y <= new Date().getFullYear() + 1);
+    year = ok.length ? Math.max(...ok) : (cands[0] ?? null);
+  }
   const codeM = /\b([A-Z]{2}\d{4,5})\b/i.exec(text);
   const code = codeM ? codeM[1].toUpperCase() : null;
   const fullMarks = Number((/Full\s*Marks?\s*:\s*(\d+)/i.exec(text) || [])[1]) || null;
@@ -77,7 +94,7 @@ function parseMeta(text) {
       if (looksLikeTitle(lines[i])) { subject = lines[i]; break; }
     }
   }
-  if (!subject) subject = lines.find(looksLikeTitle) || null; // fallback
+  if (!subject) subject = lines.slice(0, 12).find(looksLikeTitle) || null; // header-only fallback (titles never sit in the question body)
   return { examType, session, year, subject: cleanSubject(subject), code, fullMarks };
 }
 
@@ -105,7 +122,8 @@ const cleanText = (s) =>
     .replace(MARKS_INLINE, " ")
     .replace(/\[\s*\d{1,3}\s*[\])]?/g, " ") // bracketed mark artifacts: "[5]" "[51" "[10"
     .replace(/\b\d{1,2}\s*[\])]/g, " ") // orphan marks: "15]" "5)" "5]"
-    .replace(/[|*]{2,}|\*k[ok]+/gi, " ") // OCR'd dividers / "*****" -> "*kokokk"
+    .replace(/[|*]{2,}|\*?k[ok]{2,}/gi, " ") // OCR'd dividers: "*****" / "*kokokk" / "kkk"
+    .replace(/\s[–—]{2,}\s*.*$/g, " ") // trailing OCR rule line ("— ——— cee litem")
     .replace(/\[\s*[A-Za-z&]{1,3}\s*\]/g, " ") // junk like "[EB]" "[&]"
     .replace(/[\[\]{}]+/g, " ") // stray brackets/braces e.g. "[&)]"
     .replace(/[«»©®~^_|@]+/g, " ") // stray OCR symbols
@@ -115,16 +133,33 @@ const cleanText = (s) =>
     .replace(/\s+/g, " ")
     .trim();
 
-// Line starting a numbered question, optionally with an inline part:
-//   "1. (a) text"  |  "1. text"  |  "4."
-// NOTE: kept deliberately strict ("1." + "(a)"). Broadening to "1)"/"a)" was
-// tried and reverted — it doubled the question count on KIIT *solution* sheets
-// by matching answer-list bullets ("a) ...", "1) ...") as new questions.
-const Q_NUM = /^(\d{1,2})\.\s*(?:\(([a-z])\)\s*)?(.*)$/i;
-// Line starting a part of the current question: "(a) text"
-const Q_PART = /^\(([a-z])\)\s*(.*)$/i;
+// Question/part markers come in two KIIT numbering styles:
+//   dot:   "1." + "(a)"   (the strict default — most papers + solution sheets)
+//   paren: "1)" + "a)"    (some mid-sems)
+// We can't accept "1)"/"a)" everywhere: bare "a) …" answer-list bullets on
+// SOLUTION sheets then double the question count. So we detect the dominant
+// style PER PAPER (by counting digit-led markers) and use exactly one set —
+// dot-style papers never see the looser "a)" part rule.
+const MARKERS = {
+  dot:   { num: /^(\d{1,2})\.\s*(?:\(([a-z])\)\s*)?(.*)$/i, part: /^\(([a-z])\)\s*(.*)$/i },
+  paren: { num: /^(\d{1,2})\)\s*(?:([a-z])\)\s*)?(.*)$/i,   part: /^([a-z])\)\s*(.*)$/i },
+};
+function detectStyle(lines) {
+  let dot = 0, paren = 0;
+  for (const l of lines) {
+    const m = /^(\d{1,2})([.)])/.exec(l);
+    if (!m) continue;
+    if (m[2] === ".") dot++; else paren++;
+  }
+  return paren > dot ? "paren" : "dot";
+}
+// Section headers that ride in as a stub question ("1) Short Questions") when a
+// real question's parts follow on later lines — not content.
+const isHeader = (t) => /^(short|long|very\s+short|objective|descriptive)\s+(answer\s+)?(type\s+)?questions?\b/i.test(t);
 
 export function splitQuestions(text) {
+  const lines = text.split("\n");
+  const { num: Q_NUM, part: Q_PART } = MARKERS[detectStyle(lines.map((l) => l.trim()))];
   const out = [];
   const seen = new Set();
   let cur = null;
@@ -137,7 +172,7 @@ export function splitQuestions(text) {
   const flush = () => {
     if (cur) {
       const text = cleanText(cur.text);
-      if (text.length > 8 && !isInstruction(text)) {
+      if (text.length > 8 && !isInstruction(text) && !isHeader(text)) {
         cur.text = text;
         let id = `q${cur.num}${cur.part || ""}`;
         while (seen.has(id)) id += "_"; // guarantee uniqueness
@@ -149,7 +184,7 @@ export function splitQuestions(text) {
     cur = null;
   };
 
-  for (const raw of text.split("\n")) {
+  for (const raw of lines) {
     const l = raw.trim();
     if (!l || isNoise(l)) continue;
 

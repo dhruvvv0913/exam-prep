@@ -4,6 +4,8 @@
 // Returns clusters in the shape rank.groupsFromClusters() expects, or THROWS so
 // pipeline.analyze can fall back to the in-browser embedding grouping.
 import { supabase } from "../lib/supabase.js";
+import { NOT_ON_SLIDES } from "./clusterCore.js"; // pure import — does NOT pull the embedder
+import { chapterToDeck } from "./aiPrompt.js";
 
 // Cheap check used by the UI: is AI grouping reachable for this visitor?
 export async function aiGroupAvailable() {
@@ -26,11 +28,15 @@ export async function groupViaApi(items, topics = []) {
   const { groups } = await res.json();
   if (!Array.isArray(groups)) throw new Error("bad response");
 
+  // With slides, each type is tagged with its chapter (-> deck, powers "By PPT").
+  // Without slides, deck stays null and only the "By importance" view shows.
+  const hasChapters = topics.length > 0;
   // Map the model's 1-based question ids back to our items -> clusters.
   const used = new Set();
   const clusters = groups
     .map((g) => ({
       topic: String(g.topic || "Topic"),
+      deck: chapterToDeck(g.chapter, hasChapters),
       items: (g.ids || [])
         .map((n) => items[n - 1])
         .filter((q) => q && !used.has(q))
@@ -38,6 +44,6 @@ export async function groupViaApi(items, topics = []) {
     }))
     .filter((c) => c.items.length);
   const missed = items.filter((q) => !used.has(q));
-  if (missed.length) clusters.push({ topic: "Ungrouped", items: missed });
+  if (missed.length) clusters.push({ topic: "Ungrouped", deck: hasChapters ? NOT_ON_SLIDES : null, items: missed });
   return clusters;
 }

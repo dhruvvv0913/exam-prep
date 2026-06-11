@@ -19,6 +19,10 @@ export function extractKeywords(text) {
   return new Set([...words, ...acronyms]);
 }
 
+// Deck label for questions that matched no slide. Used by the fine grouping
+// below and by rank.byPpt so the "By PPT" view can show one final bucket.
+export const NOT_ON_SLIDES = "Not on any PPT";
+
 // Cosine similarity of two already-normalized vectors == dot product.
 export function dot(a, b) {
   let s = 0;
@@ -35,14 +39,26 @@ export function dot(a, b) {
 // exam phrasing from grouping. Words that appear in most questions (e.g. the
 // subject name) are treated as non-distinctive and ignored.
 //
-// items: [{ id, text, ... }]   returns clusters: [{ items: [...] }] largest-first
-export function clusterVectors(items, vecs, { threshold = 0.72, strong = 0.89 } = {}) {
-  const kwSets = items.map((it) => extractKeywords(it.text));
-  const N = items.length;
+// Content words so common across the corpus they carry no distinguishing
+// signal (e.g. a subject name in nearly every question). `frac` = fraction of
+// questions a word must appear in to count as ubiquitous.
+export function ubiquitousKeywords(items, frac = 0.5) {
+  const N = items.length || 1;
   const df = new Map();
-  for (const s of kwSets) for (const w of s) df.set(w, (df.get(w) || 0) + 1);
-  const ubiquitous = new Set([...df].filter(([, c]) => c / N > 0.5).map(([w]) => w));
-  const kw = kwSets.map((s) => new Set([...s].filter((w) => !ubiquitous.has(w))));
+  for (const it of items) for (const w of extractKeywords(it.text)) df.set(w, (df.get(w) || 0) + 1);
+  return new Set([...df].filter(([, c]) => c / N > frac).map(([w]) => w));
+}
+
+// items: [{ id, text, ... }]   returns clusters: [{ items: [...] }] largest-first.
+// `ubiquitous` (optional): a precomputed non-distinctive-word set. By default
+// it's judged within THIS item set; callers grouping a SUBSET (the per-deck
+// sub-clustering) pass the CORPUS-WIDE set instead — otherwise a word common
+// only inside one chapter (e.g. "booth") gets wrongly stripped and can't unite
+// that chapter's repeats.
+export function clusterVectors(items, vecs, { threshold = 0.72, strong = 0.89, ubiquitous = null } = {}) {
+  const kwSets = items.map((it) => extractKeywords(it.text));
+  const ubiq = ubiquitous || ubiquitousKeywords(items);
+  const kw = kwSets.map((s) => new Set([...s].filter((w) => !ubiq.has(w))));
 
   const clusters = [];
   items.forEach((item, i) => {
@@ -102,4 +118,59 @@ export function anchorVectors(items, qVecs, topics, topicVecs, { floor = 0.70, d
   const groups = [...buckets.values()].sort((a, b) => b.items.length - a.items.length);
   if (leftover.length) groups.push({ topic: "Not on slides", items: leftover });
   return groups;
+}
+
+// ---- slide-anchored FINE grouping ------------------------------------------
+//
+// Two-stage grouping that powers the two study views:
+//   1. route each question to its nearest slide TITLE's deck (the precise
+//      anchoring above), exactly as `anchorVectors` does;
+//   2. WITHIN each deck, sub-cluster the questions by similarity (the same
+//      complete-linkage as bottom-up `clusterVectors`) into fine "question
+//      types" — so one PPT can yield several ranked type-groups.
+//
+// Unlike `anchorVectors` (which returns ONE group per deck), this returns many
+// small type-groups, each tagged with its `deck` (the PPT label). The flat,
+// repeat-ranked "By importance" view flattens them; the "By PPT" view buckets
+// them back under `deck`. Questions below `floor` are clustered on their own
+// and tagged `deck: NOT_ON_SLIDES`. Returns [{ deck, items }] largest-first;
+// `topic` is left unset so rank.js synthesises a per-type label.
+export function anchorAndClusterVectors(items, qVecs, topics, topicVecs, opts = {}) {
+  const { floor = 0.70, deckOf = null, threshold = 0.72, strong = 0.89 } = opts;
+  const labelOf = (j) => (deckOf ? deckOf[j] : topics[j]);
+
+  // stage 1: bucket question indices by their nearest title's deck
+  const byDeck = new Map(); // deck label -> [item index]
+  const leftover = [];
+  items.forEach((_item, i) => {
+    let bestJ = -1, best = -Infinity;
+    for (let j = 0; j < topicVecs.length; j++) {
+      const s = dot(qVecs[i], topicVecs[j]);
+      if (s > best) { best = s; bestJ = j; }
+    }
+    if (bestJ >= 0 && best >= floor) {
+      const lab = labelOf(bestJ);
+      if (!byDeck.has(lab)) byDeck.set(lab, []);
+      byDeck.get(lab).push(i);
+    } else {
+      leftover.push(i);
+    }
+  });
+
+  // stage 2: similarity sub-cluster within each deck (and within the leftover).
+  // Ubiquity is judged over the WHOLE paper set, not per-deck, so a chapter's
+  // own topic words survive to unite its repeats.
+  const ubiquitous = ubiquitousKeywords(items);
+  const out = [];
+  const pushTypes = (idxs, deck) => {
+    const subItems = idxs.map((i) => items[i]);
+    const subVecs = idxs.map((i) => qVecs[i]);
+    for (const c of clusterVectors(subItems, subVecs, { threshold, strong, ubiquitous })) {
+      out.push({ deck, items: c.items });
+    }
+  };
+  for (const [deck, idxs] of byDeck) pushTypes(idxs, deck);
+  if (leftover.length) pushTypes(leftover, NOT_ON_SLIDES);
+
+  return out.sort((a, b) => b.items.length - a.items.length);
 }

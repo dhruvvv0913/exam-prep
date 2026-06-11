@@ -125,8 +125,8 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     try {
       // Use the prefetched chunk if we started one; otherwise (AI path that
       // failed) load it now.
-      const { clusterQuestions, anchorQuestions } = await (embedderP || import("./cluster.js"));
-      clusters = topics.length ? await anchorQuestions(items, topics, { deckOf }) : await clusterQuestions(items);
+      const { clusterQuestions, anchorAndClusterQuestions } = await (embedderP || import("./cluster.js"));
+      clusters = topics.length ? await anchorAndClusterQuestions(items, topics, { deckOf }) : await clusterQuestions(items);
     } catch (e) {
       throw new Error(`Grouping (AI model) failed: ${e.message}`);
     }

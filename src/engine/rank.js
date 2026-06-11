@@ -6,12 +6,15 @@
 // without re-running the AI.
 //   appears  = number of distinct exams (papers) the concept showed up in
 //   variants = number of distinct question wordings found
+import { NOT_ON_SLIDES } from "./clusterCore.js";
 
 const STOP = new Set(
   ("the of and to in is are be a an for with on at as by it its from this that these how " +
    "what why when which who where each both all any following given using use explain define " +
    "write state describe discuss compare differentiate difference between find calculate consider " +
-   "brief major role about can does do how various their there here also with respect").split(" ")
+   "brief major role about can does do how various their there here also with respect " +
+   // generic exam-formatting words — never the actual topic of a question
+   "diagram neat suitable figure draw steps note notes short parts example examples").split(" ")
 );
 
 // Short human label for a group. Weights distinctive terms — acronyms (WTO,
@@ -45,6 +48,10 @@ export function groupsFromClusters(clusters) {
   return clusters.map((c, i) => ({
     id: `g${i}`,
     topic: c.topic || topicLabel(c.items),
+    // which PPT/slide deck this type-group belongs to (fine slide-anchored
+    // grouping). null when no slides were uploaded; NOT_ON_SLIDES for the
+    // off-syllabus bucket. Powers the "By PPT" view.
+    deck: c.deck ?? null,
     items: c.items.map((it) => ({
       uid: `${it.pIdx ?? 0}__${it.id}`, // stable per-question identity for editing
       pIdx: it.pIdx ?? 0, // which uploaded paper it came from (for the "appears" count)
@@ -57,68 +64,73 @@ export function groupsFromClusters(clusters) {
   }));
 }
 
-// Groups -> ranked display data for the analysis screen.
-export function summarize(groups) {
-  const enriched = groups
-    .filter((g) => g.items.length > 0)
-    .map((g) => {
-      // "appears" = distinct uploaded papers (by pIdx), robust to two papers
-      // sharing a session/year label.
-      const papers = new Set(g.items.map((it) => it.pIdx ?? it.paperId));
-      const rep = representative(g.items);
-      const marksOf = (it) => (typeof it.marks === "number" ? it.marks : 5);
-      const totalMarks = g.items.reduce((s, it) => s + marksOf(it), 0);
-      // newest year first; unknown years sink to the bottom
-      const ordered = [...g.items].sort((a, b) => (b.year ?? -1) - (a.year ?? -1));
-      return {
-        id: g.id,
-        topic: g.topic,
-        totalMarks, // collective marks across all questions in the group
-        q: rep.text, // representative (kept for back-compat / Node scripts)
-        appears: papers.size,
-        variants: g.items.length,
-        // full list of questions in the group (year-sorted), for the card layout
-        questions: ordered.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, pIdx: it.pIdx ?? null, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
-        similars: g.items
-          .filter((it) => it !== rep)
-          .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),
-        unique: papers.size < 2,
-      };
-    });
+// One group -> its derived display row (shared by summarize and byPpt).
+function enrichGroup(g) {
+  // "appears" = distinct uploaded papers (by pIdx), robust to two papers
+  // sharing a session/year label.
+  const papers = new Set(g.items.map((it) => it.pIdx ?? it.paperId));
+  const rep = representative(g.items);
+  const marksOf = (it) => (typeof it.marks === "number" ? it.marks : 5);
+  const totalMarks = g.items.reduce((s, it) => s + marksOf(it), 0);
+  // newest year first; unknown years sink to the bottom
+  const ordered = [...g.items].sort((a, b) => (b.year ?? -1) - (a.year ?? -1));
+  return {
+    id: g.id,
+    topic: g.topic,
+    deck: g.deck ?? null, // which PPT this type belongs to (for the By PPT view)
+    totalMarks, // collective marks across all questions in the group
+    q: rep.text, // representative (kept for back-compat / Node scripts)
+    appears: papers.size,
+    variants: g.items.length,
+    // full list of questions in the group (year-sorted), for the card layout
+    questions: ordered.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, pIdx: it.pIdx ?? null, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
+    similars: g.items
+      .filter((it) => it !== rep)
+      .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),
+    unique: papers.size < 2,
+  };
+}
 
-  // Rank by total marks (most exam weight first), then repetition, then count.
-  const ranked = enriched
-    .filter((c) => !c.unique)
-    .sort((a, b) => b.totalMarks - a.totalMarks || b.appears - a.appears || b.variants - a.variants);
+// Most exam weight first, then repetition, then count. Shared comparator.
+const byWeight = (a, b) => b.totalMarks - a.totalMarks || b.appears - a.appears || b.variants - a.variants;
+
+// Groups -> ranked display data for the analysis screen ("By importance").
+export function summarize(groups) {
+  const enriched = groups.filter((g) => g.items.length > 0).map(enrichGroup);
+  const ranked = enriched.filter((c) => !c.unique).sort(byWeight);
   const unique = enriched.filter((c) => c.unique);
   return { ranked, unique };
 }
 
-// The "By paper" view: regroup the SAME questions by their source paper (pIdx),
-// in original question order, each tagged with the topic it belongs to (so the
-// UI can cross-link a question back to its topic group). Pure / derived.
-export function byPaper(groups) {
-  const papers = new Map(); // key -> { pIdx, paperId, year, questions: [] }
+// The "By PPT" view: bucket the SAME type-groups under their slide deck (PPT),
+// each PPT showing every question-type asked from it (repeated AND asked-once),
+// ranked by exam weight. A per-deck header aggregates marks / distinct exams.
+// Off-syllabus types collect under one final NOT_ON_SLIDES bucket. Groups with
+// no deck (no slides were uploaded) are skipped — the UI hides this view then.
+export function byPpt(groups) {
+  const byDeck = new Map(); // deck label -> [enriched type]
   for (const g of groups) {
-    for (const it of g.items) {
-      const key = it.pIdx ?? it.paperId ?? 0;
-      if (!papers.has(key)) papers.set(key, { pIdx: it.pIdx ?? 0, paperId: it.paperId, year: it.year ?? null, questions: [] });
-      papers.get(key).questions.push({
-        id: it.id, text: it.text, marks: typeof it.marks === "number" ? it.marks : 5,
-        topic: g.topic, topicId: g.id, year: it.year ?? null, paperId: it.paperId,
-      });
-    }
+    if (g.items.length === 0 || g.deck == null) continue;
+    if (!byDeck.has(g.deck)) byDeck.set(g.deck, []);
+    byDeck.get(g.deck).push(enrichGroup(g));
   }
-  // Order questions within a paper by their number/part parsed from the id (q1a…).
-  const ord = (id) => { const m = /(\d+)\s*([a-z]?)/i.exec(id || ""); return m ? Number(m[1]) * 100 + (m[2] ? m[2].toLowerCase().charCodeAt(0) - 96 : 0) : 9999; };
-  const out = [...papers.values()].map((p) => {
-    p.questions.sort((a, b) => ord(a.id) - ord(b.id));
-    p.totalMarks = p.questions.reduce((s, q) => s + q.marks, 0);
-    p.count = p.questions.length;
-    return p;
+  const decks = [...byDeck.entries()].map(([deck, types]) => {
+    types.sort(byWeight);
+    const papers = new Set(types.flatMap((t) => t.questions.map((q) => q.pIdx ?? q.paperId)));
+    return {
+      deck,
+      types,
+      typeCount: types.length,
+      questionCount: types.reduce((s, t) => s + t.variants, 0),
+      appears: papers.size, // distinct exams this PPT's questions span
+      totalMarks: types.reduce((s, t) => s + t.totalMarks, 0),
+    };
   });
-  out.sort((a, b) => (b.year ?? -1) - (a.year ?? -1) || a.pIdx - b.pIdx); // newest first
-  return out;
+  // Heaviest PPT first; the off-syllabus bucket always last.
+  decks.sort((a, b) =>
+    (a.deck === NOT_ON_SLIDES) - (b.deck === NOT_ON_SLIDES) ||
+    b.totalMarks - a.totalMarks || b.appears - a.appears);
+  return decks;
 }
 
 // Back-compat for the Node dev scripts: clusters -> { ranked, unique }.

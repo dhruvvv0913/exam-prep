@@ -1,7 +1,8 @@
 // Tests for groups <-> ranked/by-paper derivations and topic labelling.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { groupsFromClusters, summarize, byPaper, topicLabel } from "../src/engine/rank.js";
+import { groupsFromClusters, summarize, byPpt, topicLabel } from "../src/engine/rank.js";
+import { NOT_ON_SLIDES } from "../src/engine/clusterCore.js";
 
 const GROUPS = [
   { id: "g0", topic: "Cache Memory", items: [
@@ -35,20 +36,53 @@ test("summarize ranks repeats and separates asked-once", () => {
   assert.equal(unique[0].topic, "Stack & Subroutines");
 });
 
-test("summarize exposes pIdx on each question (for the by-paper cross-link)", () => {
+test("summarize exposes pIdx on each question (drives the distinct-exam count)", () => {
   const { ranked } = summarize(GROUPS);
   const idxs = ranked[0].questions.map((q) => q.pIdx).sort();
   assert.deepEqual(idxs, [0, 1]);
 });
 
-test("byPaper regroups by source paper, tagging each question with its topic", () => {
-  const papers = byPaper(GROUPS);
-  assert.equal(papers.length, 2); // pIdx 0 and 1
-  const p0 = papers.find((p) => p.pIdx === 0);
-  assert.equal(p0.questions.length, 2);
-  assert.ok(p0.questions.some((q) => q.topic === "Cache Memory"));
-  assert.ok(p0.questions.some((q) => q.topic === "Stack & Subroutines"));
-  assert.equal(p0.totalMarks, 10);
+test("groupsFromClusters carries the deck (PPT) label, defaulting to null", () => {
+  const out = groupsFromClusters([
+    { deck: "Cache Memory", items: [{ id: "q1", text: "cache mapping", pIdx: 0 }] },
+    { items: [{ id: "q2", text: "no slides uploaded", pIdx: 0 }] },
+  ]);
+  assert.equal(out[0].deck, "Cache Memory");
+  assert.equal(out[1].deck, null);
+});
+
+const DECK_GROUPS = [
+  { id: "g0", topic: "Direct mapping", deck: "Cache Memory", items: [
+    { uid: "0__q1", pIdx: 0, id: "q1", text: "Explain direct mapping.", paperId: "Spring 2023", year: 2023, marks: 5 },
+    { uid: "1__q1", pIdx: 1, id: "q1", text: "Describe a direct-mapped cache.", paperId: "Spring 2024", year: 2024, marks: 5 },
+  ] },
+  { id: "g1", topic: "Associative mapping", deck: "Cache Memory", items: [
+    { uid: "0__q2", pIdx: 0, id: "q2", text: "What is associative mapping?", paperId: "Spring 2023", year: 2023, marks: 10 },
+  ] },
+  { id: "g2", topic: "Booth's algorithm", deck: "Multiplication", items: [
+    { uid: "2__q1", pIdx: 2, id: "q1", text: "Booth's algorithm steps.", paperId: "Spring 2022", year: 2022, marks: 5 },
+  ] },
+  { id: "g3", topic: "Mystery", deck: NOT_ON_SLIDES, items: [
+    { uid: "0__q9", pIdx: 0, id: "q9", text: "Some off-syllabus question.", paperId: "Spring 2023", year: 2023, marks: 5 },
+  ] },
+];
+
+test("byPpt buckets type-groups under their PPT; heaviest first, off-syllabus last", () => {
+  const decks = byPpt(DECK_GROUPS);
+  assert.equal(decks.length, 3);
+  // Cache Memory = 20 marks (5+5+10) => first; off-syllabus bucket => last
+  assert.equal(decks[0].deck, "Cache Memory");
+  assert.equal(decks[0].typeCount, 2);       // two question-types under this PPT
+  assert.equal(decks[0].questionCount, 3);   // three questions total
+  assert.equal(decks[0].appears, 2);         // spanning papers pIdx 0 and 1
+  assert.equal(decks[0].totalMarks, 20);
+  assert.equal(decks[0].types[0].topic, "Direct mapping"); // repeated type ranks above asked-once
+  assert.equal(decks[decks.length - 1].deck, NOT_ON_SLIDES);
+});
+
+test("byPpt ignores groups with no deck (no slides were uploaded)", () => {
+  const out = byPpt([{ id: "g0", topic: "X", deck: null, items: [{ id: "q1", text: "t", pIdx: 0, marks: 5 }] }]);
+  assert.deepEqual(out, []);
 });
 
 test("topicLabel weights acronyms over generic words", () => {

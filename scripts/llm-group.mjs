@@ -24,6 +24,7 @@ import { createWorker } from "tesseract.js";
 import { parsePaper } from "../src/engine/parsePaper.js";
 import { isUsableText } from "../src/engine/textQuality.js";
 import { extractDeckTopics, deckLabel } from "../src/engine/slides.js";
+import { buildGroupingPrompt, chapterToDeck } from "../src/engine/aiPrompt.js";
 
 // ---- LLM providers (same prompt + JSON parsing; only the HTTP call differs) ----
 async function openaiChat(url, prompt, model, key) {
@@ -42,10 +43,15 @@ const PROVIDERS = {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
       const r = await fetch(url, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0, maxOutputTokens: 8192, responseMimeType: "application/json" } }),
+        // thinkingBudget:0 turns OFF 2.5-flash "thinking" — for a structured
+        // grouping task it isn't needed and was eating the output budget,
+        // truncating the JSON. responseMimeType keeps the reply pure JSON.
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0, maxOutputTokens: 32768, responseMimeType: "application/json", ...(/2\.5/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}) } }),
       });
       if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
       const d = await r.json();
+      const reason = d.candidates?.[0]?.finishReason;
+      if (reason && reason !== "STOP") console.error(`  (gemini finishReason=${reason})`);
       return (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("");
     },
   },
@@ -179,27 +185,8 @@ for (let i = 0; i < paperPaths.length; i++) {
 }
 if (!items.length) { console.error("No questions parsed — nothing to group."); process.exit(1); }
 
-// ---- 3) ask the LLM to group ----
-const numbered = items.map((q, i) => `${i + 1}. (${q.paperId}) ${q.text.replace(/\s+/g, " ").slice(0, 320)}`).join("\n");
-const chapterList = chapters.length ? chapters.map((c) => `- ${c}`).join("\n") : "(no slides provided — infer concise topic names yourself)";
-
-const prompt = `You are organising a college exam-prep tool. Group these past-exam questions by the concept/chapter they test, so students see which topics repeat across years.
-
-Syllabus chapters (from the course slides) — prefer these as topic labels:
-${chapterList}
-
-Rules:
-- Assign EVERY question to exactly one topic. Each question number must appear exactly once.
-- Prefer a chapter name above; you may split a chapter into a clearer sub-topic, or add a topic, only when questions clearly need it. Keep labels short and student-friendly (e.g. "Addressing Modes", "Cache Mapping", "Booth's Multiplication").
-- Group questions that test the SAME concept together even if worded differently or garbled by OCR.
-- Put genuinely off-syllabus questions under the topic "Not on slides".
-- Ignore OCR noise; judge by the underlying concept.
-
-Questions:
-${numbered}
-
-Respond with ONLY a JSON object, no prose, in this exact shape:
-{"groups":[{"topic":"<label>","ids":[<question numbers>]}]}`;
+// ---- 3) ask the LLM to group (shared prompt with the in-app proxy) ----
+const prompt = buildGroupingPrompt(items, chapters);
 
 console.error(`\nAsking ${providerName} (${model}) to group ${items.length} questions...`);
 let raw;
@@ -213,6 +200,9 @@ try { parsed = JSON.parse(jsonStr); }
 catch (e) { console.error("Could not parse model JSON:\n" + raw); process.exit(1); }
 
 // ---- 4) map ids back to questions -> app `groups` format ----
+// Each group is a FINE question-type tagged with its `deck` (chapter/PPT), the
+// same shape the in-app AI path and the two analysis views consume.
+const hasChapters = chapters.length > 0;
 const toItem = (q) => ({ uid: `${q.pIdx}__${q.id}`, pIdx: q.pIdx, id: q.id, text: q.text, paperId: q.paperId, year: q.year, marks: q.marks ?? 5 });
 const used = new Set();
 const groups = (parsed.groups || [])
@@ -221,22 +211,29 @@ const groups = (parsed.groups || [])
       .map((n) => items[n - 1])
       .filter((q) => q && !used.has(q))
       .map((q) => { used.add(q); return toItem(q); });
-    return { id: `g${gi}`, topic: String(g.topic || "Topic"), items: its };
+    return { id: `g${gi}`, topic: String(g.topic || "Topic"), deck: chapterToDeck(g.chapter, hasChapters), items: its };
   })
   .filter((g) => g.items.length > 0);
 
 // Safety net: any question the model dropped goes to "Ungrouped".
 const missed = items.filter((q) => !used.has(q));
 if (missed.length) {
-  groups.push({ id: `g${groups.length}`, topic: "Ungrouped", items: missed.map(toItem) });
+  groups.push({ id: `g${groups.length}`, topic: "Ungrouped", deck: hasChapters ? "Not on any PPT" : null, items: missed.map(toItem) });
   console.error(`  (model dropped ${missed.length} question(s) -> Ungrouped)`);
 }
 
 writeFileSync(outPath, JSON.stringify({ groups }, null, 2));
 console.error(`\nWrote ${groups.length} groups (${items.length} questions) -> ${outPath}`);
-console.log("\n=== GROUPS ===");
-for (const g of groups.slice().sort((a, b) => b.items.length - a.items.length)) {
-  const exams = new Set(g.items.map((it) => it.pIdx)).size;
-  console.log(`\n[${g.topic}]  ${exams}x exams · ${g.items.length} questions`);
-  for (const it of g.items) console.log(`   (${it.paperId}) ${it.text.slice(0, 80)}`);
+
+// Print grouped by chapter (the "By PPT" view) so the structure is easy to eyeball.
+const exams = (g) => new Set(g.items.map((it) => it.pIdx)).size;
+const byDeck = new Map();
+for (const g of groups) { const d = g.deck ?? "(no chapter)"; (byDeck.get(d) || byDeck.set(d, []).get(d)).push(g); }
+console.log("\n=== GROUPS BY CHAPTER ===");
+for (const [deck, gs] of [...byDeck.entries()].sort((a, b) => (a[0] === "Not on any PPT") - (b[0] === "Not on any PPT"))) {
+  console.log(`\n>>> ${deck}  (${gs.length} types · ${gs.reduce((s, g) => s + g.items.length, 0)} Qs)`);
+  for (const g of gs.slice().sort((a, b) => exams(b) - exams(a) || b.items.length - a.items.length)) {
+    console.log(`   • ${g.topic}  [${exams(g)}x exams · ${g.items.length} Qs]`);
+    for (const it of g.items) console.log(`       (${it.paperId}) ${it.text.slice(0, 78)}`);
+  }
 }

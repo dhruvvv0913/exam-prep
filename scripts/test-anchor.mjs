@@ -11,8 +11,8 @@ import { env } from "@xenova/transformers";
 import { parsePaper } from "../src/engine/parsePaper.js";
 import { isUsableText } from "../src/engine/textQuality.js";
 import { extractDeckTopics, deckLabel } from "../src/engine/slides.js";
-import { anchorQuestions, embed } from "../src/engine/cluster.js";
-import { groupsFromClusters, summarize } from "../src/engine/rank.js";
+import { anchorAndClusterQuestions, embed } from "../src/engine/cluster.js";
+import { groupsFromClusters, summarize, byPpt } from "../src/engine/rank.js";
 
 // Self-hosted model on disk (the same files the browser loads) — no network.
 env.allowRemoteModels = false;
@@ -108,7 +108,7 @@ if (args.includes("--debug")) {
   });
 }
 
-const clusters = await anchorQuestions(items, topics, { deckOf, ...(floor != null ? { floor } : {}) });
+const clusters = await anchorAndClusterQuestions(items, topics, { deckOf, ...(floor != null ? { floor } : {}) });
 const groups = groupsFromClusters(clusters);
 const { ranked, unique } = summarize(groups);
 
@@ -116,7 +116,21 @@ const show = (g) => {
   console.log(`\n[${g.topic}]  ${g.appears}x exams · ${g.variants} variants · ${g.totalMarks} marks`);
   for (const q of g.questions) console.log(`   (${q.src}) ${q.text.slice(0, 90)}`);
 };
-console.log(`\n=== RANKED TOPICS (appear in ≥2 exams) ===`);
+
+// ---- Section 1: "By importance" — fine question-types ranked by repeats -----
+console.log(`\n############  BY IMPORTANCE  ############`);
+console.log(`\n=== RANKED TYPES (appear in ≥2 exams) ===`);
 ranked.forEach(show);
-console.log(`\n=== asked once / single topic ===`);
+console.log(`\n=== asked once ===`);
 unique.forEach(show);
+
+// ---- Section 2: "By PPT" — the same types nested under their slide deck ------
+console.log(`\n\n############  BY PPT  ############`);
+for (const d of byPpt(groups)) {
+  console.log(`\n>>> ${d.deck}  (${d.typeCount} types · ${d.questionCount} Qs · ${d.appears} exams · ${d.totalMarks} marks)`);
+  for (const t of d.types) {
+    const tag = t.unique ? "asked once" : `${t.appears}x exams`;
+    console.log(`   • ${t.topic}  [${tag} · ${t.totalMarks} marks]`);
+    for (const q of t.questions) console.log(`       (${q.src}) ${q.text.slice(0, 84)}`);
+  }
+}
