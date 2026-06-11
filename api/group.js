@@ -9,7 +9,9 @@
 // Reuses VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (already set) to verify the
 // caller's session token. Optional: GEMINI_MODEL (defaults to gemini-2.0-flash).
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+import { buildGroupingPrompt } from "../src/engine/aiPrompt.js";
+
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 // Verify the caller is a signed-in user by checking the token against Supabase.
 // (Avoids needing the JWT secret here.) Returns the user object, or null.
@@ -23,28 +25,6 @@ async function verifyUser(token) {
   } catch {
     return null;
   }
-}
-
-function buildPrompt(questions, topics) {
-  const numbered = questions.map((q, i) => `${i + 1}. ${String(q.text || "").replace(/\s+/g, " ").slice(0, 320)}`).join("\n");
-  const chapterList = topics && topics.length ? topics.map((c) => `- ${c}`).join("\n") : "(no slides provided — infer concise topic names yourself)";
-  return `You are organising a college exam-prep tool. Group these past-exam questions by the concept/chapter they test, so students see which topics repeat across years.
-
-Syllabus chapters (from the course slides) — prefer these as topic labels:
-${chapterList}
-
-Rules:
-- Assign EVERY question to exactly one topic. Each question number must appear exactly once.
-- Prefer a chapter name above; you may split a chapter into a clearer sub-topic, or add a topic, only when questions clearly need it. Keep labels short and student-friendly (e.g. "Addressing Modes", "Cache Mapping", "Booth's Multiplication").
-- Group questions that test the SAME concept together even if worded differently or garbled by OCR.
-- Put genuinely off-syllabus questions under the topic "Not on slides".
-- Ignore OCR noise; judge by the underlying concept.
-
-Questions:
-${numbered}
-
-Respond with ONLY a JSON object, no prose, in this exact shape:
-{"groups":[{"topic":"<label>","ids":[<question numbers>]}]}`;
 }
 
 export default async function handler(req, res) {
@@ -71,8 +51,11 @@ export default async function handler(req, res) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(questions, topics) }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 8192, responseMimeType: "application/json" },
+        contents: [{ parts: [{ text: buildGroupingPrompt(questions, topics) }] }],
+        // thinkingBudget:0 disables 2.5-flash "thinking" (not needed for this
+        // structured task; left on it eats the token budget and truncates JSON).
+        // Only 2.5 models accept thinkingConfig, so gate it on the model name.
+        generationConfig: { temperature: 0, maxOutputTokens: 32768, responseMimeType: "application/json", ...(/2\.5/.test(GEMINI_MODEL) ? { thinkingConfig: { thinkingBudget: 0 } } : {}) },
       }),
     });
     if (!r.ok) return res.status(502).json({ error: `gemini ${r.status}` });

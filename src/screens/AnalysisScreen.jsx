@@ -9,8 +9,12 @@ import { Tag, HeatBar, GhostButton, PrimaryButton } from "../components/atoms.js
 import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { useDismissable } from "../useDismissable.js";
-import { summarize, byPaper } from "../engine/rank.js";
+import { summarize, byPpt } from "../engine/rank.js";
+import { NOT_ON_SLIDES } from "../engine/clusterCore.js";
 import { publishSubject, saveMySubject, submitContribution, listSubjects } from "../engine/libraryDb.js";
+
+// DOM id for a PPT section, so the "By importance" view can scroll to it.
+const deckSlug = (d) => "ppt-" + String(d).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 import ReviewScreen from "./ReviewScreen.jsx";
 
 // Marks aren't read off the (often garbled) paper — they're assigned from the
@@ -165,7 +169,7 @@ function LinkChip({ children, title, onClick, tone = "muted" }) {
 }
 
 // ---- one group card: topic header + collapsible question list -----------
-function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, onPaperClick, flash }) {
+function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, flash, headerChip }) {
   const unique = cluster.unique;
   const isMobile = useIsMobile();
   const delay = Math.min((rank || 0) * 0.035, 0.45);
@@ -198,6 +202,7 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
                   <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted }}>appears in {cluster.appears} exams · {cluster.variants} questions</span>
                   <HeatBar value={cluster.totalMarks} max={max} />
                 </React.Fragment>}
+            {headerChip}
           </div>
         </div>
 
@@ -215,9 +220,7 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
         <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
           {cluster.questions.map((q, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
-              {q.pIdx != null && onPaperClick
-                ? <LinkChip title="See this whole paper" onClick={() => onPaperClick(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</LinkChip>
-                : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.paperId || q.year || "?"}</span>}
+              <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>
               <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
               <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
             </div>
@@ -227,50 +230,43 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
     </div>);
 }
 
-// ---- one paper card: a source exam + its questions (the "By paper" view) ----
-function PaperCard({ paper, label, collapsed, onToggle, onTopicClick, flash }) {
+// ---- one PPT section: a slide deck's header + the question-types under it ----
+// (the "By PPT" view). The types themselves are rendered as GroupCards by the
+// parent and passed in as `children`, so star/done/collapse behave identically
+// across both views.
+function PptSection({ deck, children, flash }) {
   const isMobile = useIsMobile();
-  const lit = flash === `paper-${paper.pIdx}`;
+  const off = deck.deck === NOT_ON_SLIDES;
+  const lit = flash === deckSlug(deck.deck);
   return (
-    <div id={`paper-${paper.pIdx}`}
-      onMouseEnter={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowMd; }}
-      onMouseLeave={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowSm; }}
-      style={{ background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", transition: "box-shadow .2s, border-color .2s", animation: "rise .4s ease backwards", scrollMarginTop: 12 }}>
-      <div onClick={onToggle} role="button" tabIndex={0} aria-expanded={!collapsed}
-        aria-label={`${label} — ${collapsed ? "expand" : "collapse"}`}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
-        style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
-        <div style={{ width: 34, height: 34, flex: "0 0 auto", borderRadius: 10, background: C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}><IconFile s={17} c={C.primary} /></div>
+    <div id={deckSlug(deck.deck)} style={{ scrollMarginTop: 12, animation: "rise .4s ease backwards" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 6px 12px", borderRadius: 12, transition: "background .3s", background: lit ? hexA(C.primary, 0.07) : "transparent" }}>
+        <div style={{ width: 34, height: 34, flex: "0 0 auto", borderRadius: 10, background: off ? "#f1f2f8" : C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <IconLayers s={17} c={off ? C.faint : C.primary} />
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: C.font, fontSize: 16, fontWeight: 600, color: C.ink, lineHeight: 1.3, textWrap: "pretty" }}>{label}</div>
-          <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted, marginTop: 3 }}>{paper.count} {paper.count === 1 ? "question" : "questions"} · {paper.totalMarks} marks</div>
+          <div style={{ fontFamily: C.font, fontSize: 17, fontWeight: 700, color: off ? C.muted : C.ink, lineHeight: 1.25, textWrap: "pretty" }}>{deck.deck}</div>
+          <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, marginTop: 2 }}>
+            {off
+              ? `${deck.typeCount} ${deck.typeCount === 1 ? "type" : "types"} · didn't match any uploaded slide`
+              : `${deck.typeCount} ${deck.typeCount === 1 ? "type" : "types"} · ${deck.questionCount} ${deck.questionCount === 1 ? "question" : "questions"} · ${deck.appears} ${deck.appears === 1 ? "exam" : "exams"} · ${deck.totalMarks} marks`}
+          </div>
         </div>
-        <IconChevron s={18} c={C.faint} dir={collapsed ? "down" : "up"} />
       </div>
-      {!collapsed && (
-        <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
-          {paper.questions.map((q, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
-              <LinkChip tone="primary" title={`Topic: ${q.topic} — jump to it across all papers`} onClick={() => onTopicClick(q.topicId)}>
-                <IconLayers s={10} c={C.primary} /> {q.topic.length > 30 ? q.topic.slice(0, 29) + "…" : q.topic}
-              </LinkChip>
-              <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
-              <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginLeft: isMobile ? 0 : 17, paddingLeft: isMobile ? 0 : 16, borderLeft: isMobile ? "none" : `2px solid ${C.lineSoft}` }}>
+        {children}
+      </div>
     </div>);
 }
 
-// Segmented control: topic-grouping vs paper-grouping.
+// Segmented control: importance-grouping vs PPT-grouping.
 function ViewToggle({ view, onChange }) {
   const opt = (val, label) => (
     <button onClick={() => onChange(val)} aria-pressed={view === val} style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "7px 16px", borderRadius: 999, cursor: "pointer", border: "none", background: view === val ? "#fff" : "transparent", color: view === val ? C.primary : C.muted, boxShadow: view === val ? C.shadowSm : "none", transition: "color .15s, background .15s" }}>{label}</button>
   );
   return (
     <div style={{ display: "inline-flex", gap: 3, padding: 3, background: "#eef0f8", borderRadius: 999, border: `1px solid ${C.line}` }}>
-      {opt("topic", "By topic")}{opt("paper", "By paper")}
+      {opt("importance", "By importance")}{opt("ppt", "By PPT")}
     </div>);
 }
 
@@ -286,12 +282,16 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
   const [showPublish, setShowPublish] = React.useState(false);
   const [showContribute, setShowContribute] = React.useState(false);
   const [mineState, setMineState] = React.useState("idle"); // idle | saving | saved | error
-  const [view, setView] = React.useState("topic"); // "topic" | "paper"
+  const [view, setView] = React.useState("importance"); // "importance" | "ppt"
   const [flash, setFlash] = React.useState(null);   // id of the card to briefly highlight after a jump
   const pendingScroll = React.useRef(null);
 
   const { ranked, unique } = React.useMemo(() => summarize(data.groups), [data.groups]);
-  const papersView = React.useMemo(() => byPaper(data.groups), [data.groups]);
+  const pptView = React.useMemo(() => byPpt(data.groups), [data.groups]);
+  // The "By PPT" view only exists when course slides were uploaded (groups carry
+  // a deck). Without slides, byPpt is empty and we show only "By importance".
+  const hasPpt = pptView.length > 0;
+  const effectiveView = hasPpt ? view : "importance";
   const maxMarks = Math.max(1, ...ranked.map((c) => c.totalMarks));
   const isMobile = useIsMobile();
 
@@ -309,19 +309,12 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
 
-  // Build a readable paper label from the detected meta (falls back to paperId).
-  const paperLabelOf = (p) => {
-    const meta = (data.papers || [])[p.pIdx];
-    const ex = meta?.examType ? (meta.examType === "MID" ? "Mid-Sem" : "End-Sem") : null;
-    const bits = [meta?.session, ex, meta?.year ?? p.year].filter(Boolean);
-    return bits.length ? bits.join(" ") : (p.paperId || `Paper ${p.pIdx + 1}`);
-  };
-
-  // Cross-navigation between the two views (click a paper chip ⇄ a topic chip).
-  const goToPaper = (pIdx) => { pendingScroll.current = `paper-${pIdx}`; setView("paper"); };
-  const goToTopic = (topicId) => {
-    setCollapsed((prev) => { const n = new Set(prev); n.delete(topicId); return n; }); // ensure it's open
-    pendingScroll.current = `topic-${topicId}`; setView("topic");
+  // Cross-navigation between the two views: a type's PPT chip (importance view)
+  // jumps to that PPT; a type's rank chip (PPT view) jumps to its ranked spot.
+  const goToPpt = (deck) => { pendingScroll.current = deckSlug(deck); setView("ppt"); };
+  const goToImportance = (id) => {
+    setCollapsed((prev) => { const n = new Set(prev); n.delete(id); return n; }); // ensure it's open
+    pendingScroll.current = `topic-${id}`; setView("importance");
   };
   React.useEffect(() => {
     const target = pendingScroll.current;
@@ -333,14 +326,6 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
     }, 70);
     return () => clearTimeout(t);
   }, [view]);
-
-  const card = (c, rank) => (
-    <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
-      collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
-      starred={starred.has(c.id)} done={done.has(c.id)}
-      onStar={() => onToggleStar(c.id)} onDone={() => onToggleDone(c.id)}
-      onPaperClick={goToPaper} flash={flash} />
-  );
 
   // Review/edit mode replaces the ranked view (all hooks above run regardless).
   if (editing) {
@@ -356,6 +341,26 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
   // study progress (over all groups) + search/filter
   const rankOf = new Map(ranked.map((c, i) => [c.id, i + 1]));
   const allGroups = [...ranked, ...unique];
+
+  // PPT chip on a card in "By importance" → jump to that PPT in "By PPT".
+  const pptChip = (c) => c.deck == null ? null : (
+    <LinkChip tone="muted" title={`From ${c.deck} — open this PPT`} onClick={() => goToPpt(c.deck)}>
+      <IconLayers s={10} c={C.muted} /> {c.deck.length > 26 ? c.deck.slice(0, 25) + "…" : c.deck}
+    </LinkChip>
+  );
+  // Rank chip on a card in "By PPT" → jump to where it ranks overall.
+  const rankChipBack = (c) => c.unique ? null : (
+    <LinkChip tone="primary" title="See where this ranks overall" onClick={() => goToImportance(c.id)}>
+      <IconLayers s={10} c={C.primary} /> Ranked #{rankOf.get(c.id)}
+    </LinkChip>
+  );
+  const renderCard = (c, rank, headerChip) => (
+    <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
+      collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
+      starred={starred.has(c.id)} done={done.has(c.id)}
+      onStar={() => onToggleStar(c.id)} onDone={() => onToggleDone(c.id)}
+      flash={flash} headerChip={headerChip} />
+  );
   const allCollapsed = allGroups.length > 0 && allGroups.every((c) => collapsed.has(c.id));
   const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(allGroups.map((c) => c.id)));
   const doneGroups = allGroups.filter((c) => done.has(c.id));
@@ -432,24 +437,24 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           </div>
         )}
 
-        {allGroups.length > 0 && (
+        {hasPpt && (
           <Tip id="analysis-views" title="Two ways to study these">
-            Use the toggle to switch between <strong>By topic</strong> (ranked by what repeats) and <strong>By paper</strong> (each exam in full). Tap the paper or topic chip on any question to jump between the two.
+            Switch between <strong>By importance</strong> (every question type, ranked by what repeats) and <strong>By PPT</strong> (each slide deck with the question types asked from it). Tap a card's PPT or rank chip to jump between the two.
           </Tip>
         )}
 
-        {/* topic vs paper view toggle */}
-        {allGroups.length > 0 && (
+        {/* importance vs PPT view toggle (only when slides produced a PPT view) */}
+        {hasPpt && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-            <ViewToggle view={view} onChange={setView} />
+            <ViewToggle view={effectiveView} onChange={setView} />
             <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint }}>
-              {view === "topic" ? "Grouped by concept · ranked by repeats" : `${papersView.length} ${papersView.length === 1 ? "paper" : "papers"} · questions in order`}
+              {effectiveView === "importance" ? "Grouped by concept · ranked by repeats" : `${pptView.length} ${pptView.length === 1 ? "PPT" : "PPTs"} · every question type`}
             </span>
           </div>
         )}
 
         {/* study progress */}
-        {view === "topic" && allGroups.length > 0 && (
+        {allGroups.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: C.font, fontSize: 12.5, color: C.muted, marginBottom: 6 }}>
               <span style={{ fontWeight: 600, color: C.ink2 }}>Studied {donePct}%</span>
@@ -462,7 +467,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
         )}
 
         {/* search + filters */}
-        {view === "topic" && allGroups.length > 0 && (
+        {allGroups.length > 0 && (
           <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search topics or questions…"
               style={{ flex: "1 1 240px", minWidth: 0, fontFamily: C.font, fontSize: 14, padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none" }} />
@@ -472,13 +477,13 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           </div>
         )}
 
-        {view === "topic" && <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {effectiveView === "importance" && <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {ranked.length === 0
             ? <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
                 No repeated concepts yet. Upload papers from <strong>two or more years</strong> of the same subject and we'll surface the questions that come back.
               </div>
             : rankedF.length > 0
-              ? rankedF.map((c) => card(c, rankOf.get(c.id)))
+              ? rankedF.map((c) => renderCard(c, rankOf.get(c.id), pptChip(c)))
               : <div style={noteStyle}>No repeated topics match your search/filters.</div>}
 
           {uniqueF.length > 0 && <React.Fragment>
@@ -487,19 +492,24 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
               <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, whiteSpace: "nowrap", fontWeight: 500 }}>Asked once — lower priority</span>
               <div style={{ flex: 1, height: 1, background: C.line }} />
             </div>
-            {uniqueF.map((c) => card(c, 0))}
+            {uniqueF.map((c) => renderCard(c, 0, pptChip(c)))}
           </React.Fragment>}
         </div>}
 
-        {view === "paper" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {papersView.length === 0
-              ? <div style={noteStyle}>No questions to show.</div>
-              : papersView.map((p) => (
-                  <PaperCard key={p.pIdx} paper={p} label={paperLabelOf(p)}
-                    collapsed={collapsed.has(`paper-${p.pIdx}`)} onToggle={() => toggleCollapse(`paper-${p.pIdx}`)}
-                    onTopicClick={goToTopic} flash={flash} />
-                ))}
+        {effectiveView === "ppt" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            {pptView.map((d) => {
+              const types = d.types.filter(match);
+              if (types.length === 0) return null;
+              return (
+                <PptSection key={d.deck} deck={d} flash={flash}>
+                  {types.map((t) => renderCard(t, t.unique ? 0 : rankOf.get(t.id), rankChipBack(t)))}
+                </PptSection>
+              );
+            })}
+            {pptView.every((d) => d.types.filter(match).length === 0) && (
+              <div style={noteStyle}>No question types match your search/filters.</div>
+            )}
           </div>
         )}
       </div>

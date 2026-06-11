@@ -1,7 +1,7 @@
 // Tests for the pure clustering math (no embedding model needed).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clusterVectors, anchorVectors, extractKeywords } from "../src/engine/clusterCore.js";
+import { clusterVectors, anchorVectors, anchorAndClusterVectors, extractKeywords, NOT_ON_SLIDES } from "../src/engine/clusterCore.js";
 
 // Unit vectors so dot product == cosine similarity.
 const u = (x, y) => [x, y, 0];
@@ -60,4 +60,37 @@ test("anchorVectors without deckOf groups by the topic title itself", () => {
   const items = [{ id: "a", text: "cache" }];
   const groups = anchorVectors(items, [u(1, 0)], ["Cache Memory"], [u(1, 0)], { floor: 0.7 });
   assert.equal(groups[0].topic, "Cache Memory");
+});
+
+test("anchorAndClusterVectors: anchors to a deck, then splits it into fine types", () => {
+  const items = [
+    { id: "a", text: "cache mapping techniques" },
+    { id: "b", text: "cache memory blocks layout" },
+    { id: "c", text: "virtual address translation" },
+    { id: "e", text: "booth multiplication algorithm" },
+    { id: "d", text: "off syllabus mystery topic" },
+  ];
+  const qVecs = [
+    [1, 0, 0],          // a -> Memory deck
+    [0.96, 0.28, 0],    // b -> Memory; cos(a,b)=0.96 (strong) => merges with a
+    [0.75, 0, 0.6614],  // c -> Memory (0.75>=floor) but weak vs a/b + no shared word
+    [0, 1, 0],          // e -> Arithmetic deck
+    [0.5, 0.5, 0.7071], // d -> below floor to both => off-syllabus
+  ];
+  const topics = ["Cache title", "Booth title"];
+  const topicVecs = [[1, 0, 0], [0, 1, 0]];
+  const deckOf = ["Memory", "Arithmetic"];
+  const groups = anchorAndClusterVectors(items, qVecs, topics, topicVecs, { floor: 0.7, deckOf });
+
+  const find = (id) => groups.find((g) => g.items.some((it) => it.id === id));
+  // a + b form ONE type within the Memory deck
+  assert.deepEqual(find("a").items.map((it) => it.id).sort(), ["a", "b"]);
+  assert.equal(find("a").deck, "Memory");
+  // c is a SEPARATE type but still under the Memory deck
+  assert.deepEqual(find("c").items.map((it) => it.id), ["c"]);
+  assert.equal(find("c").deck, "Memory");
+  assert.equal(groups.filter((g) => g.deck === "Memory").length, 2);
+  // e under its own deck; d routed to the off-syllabus bucket
+  assert.equal(find("e").deck, "Arithmetic");
+  assert.equal(find("d").deck, NOT_ON_SLIDES);
 });

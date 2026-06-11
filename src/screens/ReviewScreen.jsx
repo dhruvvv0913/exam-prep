@@ -26,15 +26,17 @@ export default function ReviewScreen({ groups: initial, onSave, onCancel }) {
 
   const moveItem = (uid, target) => setGroups((gs) => {
     let moved = null;
+    let fromDeck = null; // keep a split-off question under the same PPT (deck)
     let next = gs.map((g) => {
       if (g.items.some((it) => it.uid === uid)) {
         moved = g.items.find((it) => it.uid === uid);
+        fromDeck = g.deck ?? null;
         return { ...g, items: g.items.filter((it) => it.uid !== uid) };
       }
       return g;
     });
     if (!moved) return gs;
-    if (target === "__new__") next = [...next, { id: `gx${counter.current++}`, topic: topicLabel([moved]), items: [moved] }];
+    if (target === "__new__") next = [...next, { id: `gx${counter.current++}`, topic: topicLabel([moved]), deck: fromDeck, items: [moved] }];
     else next = next.map((g) => (g.id === target ? { ...g, items: [...g.items, moved] } : g));
     return dropEmpty(next);
   });

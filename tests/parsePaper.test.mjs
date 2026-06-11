@@ -35,6 +35,27 @@ test("splits numbered questions and inline parts with stable ids", () => {
   assert.deepEqual(ids, ["q1a", "q1b", "q1c", "q2", "q3"]);
 });
 
+test("parses paren-style numbering (1) / a)) used by some mid-sems", () => {
+  const paren = `1) Short Questions
+a) Define cache memory and its purpose.
+b) Explain virtual memory translation.
+2) Differentiate between SRAM and DRAM in detail.
+3) Describe Booth's multiplication algorithm clearly.`;
+  const questions = splitQuestions(paren);
+  const ids = questions.map((q) => q.id);
+  // the "Short Questions" header stub is dropped; parts + later questions parse
+  assert.deepEqual(ids, ["q1a", "q1b", "q2", "q3"]);
+  assert.match(questions[0].text, /Define cache memory/);
+});
+
+test("dot-style answer-list bullets are NOT mis-split into questions", () => {
+  // A dot-style paper whose Q1 answer lists "a) … b) …" must stay strict: the
+  // bare "a)"/"b)" lines are continuation text, not new question parts.
+  const dot = "1. Name the addressing modes. a) immediate b) direct c) indirect\n2. Explain pipelining in detail and its hazards.";
+  const ids = splitQuestions(dot).map((q) => q.id);
+  assert.deepEqual(ids, ["q1", "q2"]);
+});
+
 test("marks: a multi-part Q1 is 1 mark/part, everything else 5", () => {
   const { questions } = parsePaper(PAPER);
   const by = Object.fromEntries(questions.map((q) => [q.id, q.marks]));
