@@ -36,7 +36,14 @@ test("deckLabel cleans a slide filename into a chapter name", () => {
   assert.equal(deckLabel("1 COA Introduction (1).pdf"), "Introduction");
   assert.equal(deckLabel("13 Memory System 2024.pdf"), "Memory System");
   assert.equal(deckLabel("11 Basic Processing Unit.pdf"), "Basic Processing Unit");
-  assert.equal(deckLabel("14 Cache Memory B.pdf"), "Cache Memory B");
+});
+
+test("deckLabel collapses near-duplicate decks to the same chapter (so they merge)", () => {
+  // A trailing version letter and a stray year are dropped, so two uploads of
+  // the same chapter share one label (and thus one "By PPT" section).
+  assert.equal(deckLabel("14 Cache Memory B.pdf"), "Cache Memory");
+  assert.equal(deckLabel("14_Cache_Memory_2024.pdf"), "Cache Memory");
+  assert.equal(deckLabel("14 Cache Memory B.pdf"), deckLabel("14_Cache_Memory_2024.pdf"));
 });
 
 test("extractDeckTopics tags each title with its deck label", () => {

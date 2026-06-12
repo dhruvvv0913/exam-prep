@@ -68,6 +68,7 @@ function PublishModal({ defaults, content, onClose }) {
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 18, color: C.ink }}>Publish to library</div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
         </div>
+        <p style={{ fontFamily: C.font, fontSize: 13, color: C.muted, lineHeight: 1.5, margin: "8px 0 2px" }}>Publishes <strong>live to the library right away</strong> — no review step. (Students send subjects for your review via “Contribute”; those show under Admin → Pending contributions.)</p>
         <div style={lab}>Subject name</div>
         <input value={subject} onChange={(e) => setSubject(e.target.value)} style={field} />
         <div style={lab}>ID (used in the link — lowercase, no spaces)</div>

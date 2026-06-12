@@ -24,6 +24,11 @@ test("parseMeta detects exam type, session, year, code, marks, subject", () => {
   assert.match(meta.subject, /Computer Organisation/i);
 });
 
+test("detects exam type written with a hyphen (Mid-Semester)", () => {
+  const { meta } = parsePaper("Mid-Semester Examination 2024\nComputer Organization\nCS21002\n1. Explain cache memory in detail.");
+  assert.equal(meta.examType, "MID");
+});
+
 test("year tolerates OCR O-for-0", () => {
   const { meta } = parsePaper("END SEMESTER EXAMINATION 2O24\nSPRING\nSubject Title\nCS21002");
   assert.equal(meta.year, 2024);

@@ -64,7 +64,8 @@ function parseMeta(text) {
   const lines = text.split("\n").map((l) => l.trim());
   // Tolerant of garbled scans: match each field independently, allow the
   // letter "O" misread for "0" in the year, and "." / "-" separators.
-  const examType = (/(MID|END)\s+SEMESTER/i.exec(text) || [])[1]?.toUpperCase() || null;
+  // Accept "Mid-Semester" (hyphen) as well as "Mid Semester" — KIIT papers use both.
+  const examType = (/(MID|END)[-\s]+SEMESTER/i.exec(text) || [])[1]?.toUpperCase() || null;
   const sessM = /\b(SPRING|AUTUMN|WINTER|SUMMER|FALL)\b/i.exec(text);
   const session = sessM ? sessM[1][0].toUpperCase() + sessM[1].slice(1).toLowerCase() : null;
   // Year: prefer one adjacent to "EXAMINATION"; otherwise pick the LATEST
