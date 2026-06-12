@@ -69,6 +69,20 @@ test("marks: a multi-part Q1 is 1 mark/part, everything else 5", () => {
   assert.equal(by.q3, 5);
 });
 
+test("reads an explicit per-question marks token when the paper has one", () => {
+  const out = splitQuestions("2. Explain virtual memory and address translation. [10]\n3. Differentiate SRAM and DRAM in detail. [5]");
+  const by = Object.fromEntries(out.map((q) => [q.id, q.marks]));
+  assert.equal(by.q2, 10);
+  assert.equal(by.q3, 5);
+});
+
+test("marks token sums '+' parts; falls back to the estimate when absent", () => {
+  const out = splitQuestions("2. Solve part A and part B of this numerical problem. [3+2]\n3. A long enough question with no marks token at all here.");
+  const by = Object.fromEntries(out.map((q) => [q.id, q.marks]));
+  assert.equal(by.q2, 5); // 3 + 2
+  assert.equal(by.q3, 5); // estimate (no token)
+});
+
 test("drops 'Answer the following questions' instruction headers", () => {
   const text = "1. Answer the following questions\n(a) What is X?\n(b) Define Y.";
   const { questions } = parsePaper(text);
