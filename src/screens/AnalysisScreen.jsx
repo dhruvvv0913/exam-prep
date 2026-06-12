@@ -283,6 +283,34 @@ function openFile(file) {
   } catch (e) { console.error("open file failed", e); }
 }
 
+// Build a clean, print-friendly study sheet (the ranked questions) and open it
+// in a new tab, where the browser's Print / Save-as-PDF takes over. Self-
+// contained HTML, so it needs no print stylesheet on the app itself.
+function exportStudySheet({ groups, subject, paperCount }) {
+  const { ranked, unique } = summarize(groups || []);
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const sec = (g, n) => `<section><h2>${n ? esc(n + ". ") : ""}${esc(g.topic)}</h2>`
+    + `<div class="meta">${g.unique ? "asked once" : `appears in ${g.appears} exams · ${g.variants} questions`} · ${g.totalMarks} marks</div>`
+    + `<ul>${g.questions.map((q) => `<li><span class="src">${esc(q.src || q.paperId || q.year || "?")}</span> ${esc(q.text)} <span class="m">[${q.marks}]</span></li>`).join("")}</ul></section>`;
+  const title = subject || "Important questions";
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} — study sheet</title>`
+    + `<style>body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,sans-serif;max-width:820px;margin:0 auto;padding:24px 18px 60px;color:#1a1c2e}`
+    + `h1{font-size:22px;margin:0 0 2px}h2{font-size:15.5px;margin:18px 0 3px}.meta{font-size:12px;color:#6b7180}`
+    + `ul{margin:5px 0 0;padding-left:20px}li{margin:6px 0;font-size:13.5px;line-height:1.5}`
+    + `.src{font-weight:600;color:#3f51c4;font-size:11px;margin-right:4px}.m{color:#3f51c4;font-weight:600;font-size:11px}`
+    + `section{break-inside:avoid;page-break-inside:avoid}.bar{margin-bottom:14px}`
+    + `button{font:inherit;font-size:13px;font-weight:600;color:#fff;background:#3f51c4;border:none;border-radius:8px;padding:8px 14px;cursor:pointer}`
+    + `@media print{.bar{display:none}}</style></head><body>`
+    + `<div class="bar"><button onclick="window.print()">Print / Save as PDF</button></div>`
+    + `<h1>${esc(title)}</h1><div class="meta">${paperCount || 0} papers · ranked by what repeats</div>`
+    + ranked.map((g, i) => sec(g, i + 1)).join("")
+    + (unique.length ? `<h1 style="margin-top:26px;font-size:15px;color:#8a8fa3">Asked once</h1>` + unique.map((g) => sec(g, 0)).join("") : "")
+    + `</body></html>`;
+  const w = window.open("", "_blank");
+  if (w) { w.document.write(html); w.document.close(); }
+  else console.error("Study sheet: popup blocked");
+}
+
 // "View uploaded files" disclosure at the top of the results (self-upload only):
 // lists the uploaded papers + slides; clicking a name opens that ORIGINAL file
 // in a new tab. Hidden for library/saved subjects (no files held in memory).
@@ -490,6 +518,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, flexWrap: "wrap" }}>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
+            <GhostButton onClick={() => exportStudySheet({ groups: data.groups, subject, paperCount })}><IconFile s={15} c={C.ink2} /> Study sheet</GhostButton>
             {canSaveMine && (
               <GhostButton onClick={mineState === "saved" ? undefined : saveMine}>
                 {mineState === "saved"
