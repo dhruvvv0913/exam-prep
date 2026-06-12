@@ -64,7 +64,8 @@ function parseMeta(text) {
   const lines = text.split("\n").map((l) => l.trim());
   // Tolerant of garbled scans: match each field independently, allow the
   // letter "O" misread for "0" in the year, and "." / "-" separators.
-  const examType = (/(MID|END)\s+SEMESTER/i.exec(text) || [])[1]?.toUpperCase() || null;
+  // Accept "Mid-Semester" (hyphen) as well as "Mid Semester" — KIIT papers use both.
+  const examType = (/(MID|END)[-\s]+SEMESTER/i.exec(text) || [])[1]?.toUpperCase() || null;
   const sessM = /\b(SPRING|AUTUMN|WINTER|SUMMER|FALL)\b/i.exec(text);
   const session = sessM ? sessM[1][0].toUpperCase() + sessM[1].slice(1).toLowerCase() : null;
   // Year: prefer one adjacent to "EXAMINATION"; otherwise pick the LATEST
@@ -133,6 +134,22 @@ const cleanText = (s) =>
     .replace(/\s+/g, " ")
     .trim();
 
+// Read an explicit per-question marks token from the RAW text (cleanText strips
+// these): "[5]", "(10)", "[3+2]" (=5, summed), "[1 x 10]" (=10, product). Takes
+// the LAST bracketed token (marks usually sit at the end of a question) and is
+// bounded to <=50 to avoid matching a stray figure ref. Returns null to fall
+// back to the standard-scheme estimate, so OCR garble never worsens the marks.
+function parseMarks(raw) {
+  const re = /[[(]\s*(\d{1,2}(?:\s*[+xX×]\s*\d{1,2})+|\d{1,2})\s*(?:marks?)?\s*[\])]/gi;
+  let m, last = null;
+  while ((m = re.exec(raw || ""))) last = m[1];
+  if (!last) return null;
+  const nums = last.split(/[+xX×]/).map((n) => parseInt(n, 10)).filter((n) => !isNaN(n));
+  if (!nums.length) return null;
+  const val = /[xX×]/.test(last) ? nums.reduce((a, b) => a * b, 1) : nums.reduce((a, b) => a + b, 0);
+  return val > 0 && val <= 50 ? val : null;
+}
+
 // Question/part markers come in two KIIT numbering styles:
 //   dot:   "1." + "(a)"   (the strict default — most papers + solution sheets)
 //   paren: "1)" + "a)"    (some mid-sems)
@@ -171,9 +188,11 @@ export function splitQuestions(text) {
   const isInstruction = (t) => /^answer\s+(all|any|the\s+following)\b/i.test(t);
   const flush = () => {
     if (cur) {
-      const text = cleanText(cur.text);
+      const raw = cur.text;
+      const text = cleanText(raw);
       if (text.length > 8 && !isInstruction(text) && !isHeader(text)) {
         cur.text = text;
+        cur.rawMarks = parseMarks(raw); // explicit marks token, if the paper has one
         let id = `q${cur.num}${cur.part || ""}`;
         while (seen.has(id)) id += "_"; // guarantee uniqueness
         seen.add(id);
@@ -230,7 +249,12 @@ export function splitQuestions(text) {
   // garbled) marks column.
   const q1Parts = out.filter((q) => q.num === "1").length;
   const q1IsShort = q1Parts >= 3;
-  for (const q of out) q.marks = (q.num === "1" && q1IsShort) ? 1 : 5;
+  for (const q of out) {
+    const estimate = (q.num === "1" && q1IsShort) ? 1 : 5;
+    // Prefer a real marks token off the paper; else the standard-scheme estimate.
+    q.marks = (typeof q.rawMarks === "number" && q.rawMarks > 0) ? q.rawMarks : estimate;
+    delete q.rawMarks;
+  }
 
   return out;
 }

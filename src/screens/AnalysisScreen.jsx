@@ -68,6 +68,7 @@ function PublishModal({ defaults, content, onClose }) {
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 18, color: C.ink }}>Publish to library</div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
         </div>
+        <p style={{ fontFamily: C.font, fontSize: 13, color: C.muted, lineHeight: 1.5, margin: "8px 0 2px" }}>Publishes <strong>live to the library right away</strong> — no review step. (Students send subjects for your review via “Contribute”; those show under Admin → Pending contributions.)</p>
         <div style={lab}>Subject name</div>
         <input value={subject} onChange={(e) => setSubject(e.target.value)} style={field} />
         <div style={lab}>ID (used in the link — lowercase, no spaces)</div>
@@ -169,7 +170,7 @@ function LinkChip({ children, title, onClick, tone = "muted" }) {
 }
 
 // ---- one group card: topic header + collapsible question list -----------
-function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, flash, headerChip }) {
+function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, flash, headerChip, onOpenSource }) {
   const unique = cluster.unique;
   const isMobile = useIsMobile();
   const delay = Math.min((rank || 0) * 0.035, 0.45);
@@ -220,7 +221,9 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
         <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
           {cluster.questions.map((q, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
-              <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>
+              {onOpenSource && q.pIdx != null
+                ? <LinkChip title="Open this paper in a new tab" onClick={() => onOpenSource(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"} ↗</LinkChip>
+                : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>}
               <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
               <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
             </div>
@@ -278,6 +281,34 @@ function openFile(file) {
     window.open(url, "_blank", "noopener,noreferrer");
     setTimeout(() => URL.revokeObjectURL(url), 60000); // let the new tab load first
   } catch (e) { console.error("open file failed", e); }
+}
+
+// Build a clean, print-friendly study sheet (the ranked questions) and open it
+// in a new tab, where the browser's Print / Save-as-PDF takes over. Self-
+// contained HTML, so it needs no print stylesheet on the app itself.
+function exportStudySheet({ groups, subject, paperCount }) {
+  const { ranked, unique } = summarize(groups || []);
+  const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const sec = (g, n) => `<section><h2>${n ? esc(n + ". ") : ""}${esc(g.topic)}</h2>`
+    + `<div class="meta">${g.unique ? "asked once" : `appears in ${g.appears} exams · ${g.variants} questions`} · ${g.totalMarks} marks</div>`
+    + `<ul>${g.questions.map((q) => `<li><span class="src">${esc(q.src || q.paperId || q.year || "?")}</span> ${esc(q.text)} <span class="m">[${q.marks}]</span></li>`).join("")}</ul></section>`;
+  const title = subject || "Important questions";
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} — study sheet</title>`
+    + `<style>body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,sans-serif;max-width:820px;margin:0 auto;padding:24px 18px 60px;color:#1a1c2e}`
+    + `h1{font-size:22px;margin:0 0 2px}h2{font-size:15.5px;margin:18px 0 3px}.meta{font-size:12px;color:#6b7180}`
+    + `ul{margin:5px 0 0;padding-left:20px}li{margin:6px 0;font-size:13.5px;line-height:1.5}`
+    + `.src{font-weight:600;color:#3f51c4;font-size:11px;margin-right:4px}.m{color:#3f51c4;font-weight:600;font-size:11px}`
+    + `section{break-inside:avoid;page-break-inside:avoid}.bar{margin-bottom:14px}`
+    + `button{font:inherit;font-size:13px;font-weight:600;color:#fff;background:#3f51c4;border:none;border-radius:8px;padding:8px 14px;cursor:pointer}`
+    + `@media print{.bar{display:none}}</style></head><body>`
+    + `<div class="bar"><button onclick="window.print()">Print / Save as PDF</button></div>`
+    + `<h1>${esc(title)}</h1><div class="meta">${paperCount || 0} papers · ranked by what repeats</div>`
+    + ranked.map((g, i) => sec(g, i + 1)).join("")
+    + (unique.length ? `<h1 style="margin-top:26px;font-size:15px;color:#8a8fa3">Asked once</h1>` + unique.map((g) => sec(g, 0)).join("") : "")
+    + `</body></html>`;
+  const w = window.open("", "_blank");
+  if (w) { w.document.write(html); w.document.close(); }
+  else console.error("Study sheet: popup blocked");
 }
 
 // "View uploaded files" disclosure at the top of the results (self-upload only):
@@ -426,12 +457,15 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
       <IconLayers s={10} c={C.primary} /> Ranked #{rankOf.get(c.id)}
     </LinkChip>
   );
+  // Open the source paper behind a question (its uploaded file), if we still
+  // have it in memory (self-upload session). sources.papers is pIdx-aligned.
+  const openSource = (pIdx) => { const p = (sources?.papers || [])[pIdx]; if (p?.pages?.[0]) openFile(p.pages[0]); };
   const renderCard = (c, rank, headerChip) => (
     <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
       collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
       starred={starred.has(c.id)} done={done.has(c.id)}
       onStar={() => onToggleStar(c.id)} onDone={() => onToggleDone(c.id)}
-      flash={flash} headerChip={headerChip} />
+      flash={flash} headerChip={headerChip} onOpenSource={sources ? openSource : null} />
   );
   const allCollapsed = allGroups.length > 0 && allGroups.every((c) => collapsed.has(c.id));
   const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(allGroups.map((c) => c.id)));
@@ -484,6 +518,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, flexWrap: "wrap" }}>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
+            <GhostButton onClick={() => exportStudySheet({ groups: data.groups, subject, paperCount })}><IconFile s={15} c={C.ink2} /> Study sheet</GhostButton>
             {canSaveMine && (
               <GhostButton onClick={mineState === "saved" ? undefined : saveMine}>
                 {mineState === "saved"
