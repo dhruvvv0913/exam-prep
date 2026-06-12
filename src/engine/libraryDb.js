@@ -72,6 +72,60 @@ export async function deleteMySubject(id) {
   if (error) throw error;
 }
 
+// --- My Library file storage (optional; needs the `subject-files` bucket) ----
+// Persist a saved subject's ORIGINAL uploaded files so they're viewable later,
+// not just in the upload session. Everything here is BEST-EFFORT and never
+// throws — saving a subject must never depend on file upload succeeding (and it
+// no-ops cleanly until the bucket from supabase-storage.sql exists).
+const FILE_BUCKET = "subject-files";
+const MAX_FILE_BYTES = 25 * 1024 * 1024; // skip anything huge
+
+// Upload the in-memory `sources` ({ papers:[{pages:File[]}], slides:File[] }) and
+// return the stored paths mirroring that shape, or null if unavailable.
+async function uploadMyFiles(subjectId, sources) {
+  try {
+    if (!supabase || !sources) return null;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const put = async (file, key) => {
+      if (!file || file.size > MAX_FILE_BYTES) return null;
+      const safe = (file.name || "file").replace(/[^\w.-]+/g, "_");
+      const path = `${user.id}/${subjectId}/${key}-${safe}`;
+      const { error } = await supabase.storage.from(FILE_BUCKET).upload(path, file, { upsert: true });
+      return error ? null : { name: file.name || key, path };
+    };
+    const papers = [];
+    for (let i = 0; i < (sources.papers || []).length; i++) {
+      const pp = sources.papers[i].pages || [];
+      const pages = [];
+      for (let j = 0; j < pp.length; j++) { const r = await put(pp[j], `p${i}-${j}`); if (r) pages.push(r); }
+      if (pages.length) papers.push({ name: pp[0]?.name || `Paper ${i + 1}`, pages });
+    }
+    const slides = [];
+    for (let i = 0; i < (sources.slides || []).length; i++) { const r = await put(sources.slides[i], `s${i}`); if (r) slides.push(r); }
+    return (papers.length || slides.length) ? { papers, slides } : null;
+  } catch (e) { console.error("uploadMyFiles failed:", e); return null; }
+}
+
+// After a save, upload the files and stash their paths in the row's content
+// (so getMySubject later returns content.files). Best-effort; never throws.
+export async function persistMyFiles(id, content, sources) {
+  try {
+    const files = await uploadMyFiles(id, sources);
+    if (!files) return;
+    await supabase.from("my_subjects").update({ content: { ...content, files } }).eq("id", id);
+  } catch (e) { console.error("persistMyFiles failed:", e); }
+}
+
+// A short-lived signed URL to view one stored file, or null.
+export async function signedFileUrl(path) {
+  try {
+    if (!supabase || !path) return null;
+    const { data, error } = await supabase.storage.from(FILE_BUCKET).createSignedUrl(path, 3600);
+    return error ? null : (data?.signedUrl || null);
+  } catch { return null; }
+}
+
 // --- admin only (RLS rejects non-admins) -------------------------------
 export async function publishSubject(meta, content) {
   const { error: e1 } = await supabase.from("subjects").upsert(meta);
