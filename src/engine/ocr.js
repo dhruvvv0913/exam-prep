@@ -32,18 +32,29 @@ export async function ocrImage(image) {
 
 // OCR every page of an already-loaded pdfjs document.
 // `onProgress(done, total)` is optional, for the loading UI.
-export async function ocrDocument(doc, { scale = 2, onProgress } = {}) {
+export async function ocrDocument(doc, { scale, onProgress } = {}) {
   const { createWorker } = await loadTesseract();
   const worker = await createWorker("eng", 1, WORKER_OPTS);
   try {
     let text = "";
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
-      const viewport = page.getViewport({ scale }); // 2x => crisper glyphs
+      // Render at a high, resolution-aware scale (~300 DPI-equivalent) so small
+      // or low-quality scans give Tesseract crisp glyphs — speed isn't a
+      // constraint here. Derive from the page width, capped to 2–4x to bound
+      // canvas memory; an explicit `scale` overrides.
+      const baseW = page.getViewport({ scale: 1 }).width || 595;
+      const s = scale ?? Math.min(4, Math.max(2, 2200 / baseW));
+      const viewport = page.getViewport({ scale: s });
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      const ctx = canvas.getContext("2d");
+      // Paint an opaque white background first — some scanned PDFs render with a
+      // transparent layer, which OCRs as noise without this.
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
       const { data } = await worker.recognize(canvas);
       text += data.text + "\n";
       onProgress?.(p, doc.numPages);
