@@ -170,7 +170,7 @@ function LinkChip({ children, title, onClick, tone = "muted" }) {
 }
 
 // ---- one group card: topic header + collapsible question list -----------
-function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, flash, headerChip }) {
+function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, flash, headerChip, onOpenSource }) {
   const unique = cluster.unique;
   const isMobile = useIsMobile();
   const delay = Math.min((rank || 0) * 0.035, 0.45);
@@ -221,7 +221,9 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
         <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
           {cluster.questions.map((q, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
-              <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>
+              {onOpenSource && q.pIdx != null
+                ? <LinkChip title="Open this paper in a new tab" onClick={() => onOpenSource(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"} ↗</LinkChip>
+                : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>}
               <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
               <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
             </div>
@@ -427,12 +429,15 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
       <IconLayers s={10} c={C.primary} /> Ranked #{rankOf.get(c.id)}
     </LinkChip>
   );
+  // Open the source paper behind a question (its uploaded file), if we still
+  // have it in memory (self-upload session). sources.papers is pIdx-aligned.
+  const openSource = (pIdx) => { const p = (sources?.papers || [])[pIdx]; if (p?.pages?.[0]) openFile(p.pages[0]); };
   const renderCard = (c, rank, headerChip) => (
     <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
       collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
       starred={starred.has(c.id)} done={done.has(c.id)}
       onStar={() => onToggleStar(c.id)} onDone={() => onToggleDone(c.id)}
-      flash={flash} headerChip={headerChip} />
+      flash={flash} headerChip={headerChip} onOpenSource={sources ? openSource : null} />
   );
   const allCollapsed = allGroups.length > 0 && allGroups.every((c) => collapsed.has(c.id));
   const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(allGroups.map((c) => c.id)));
