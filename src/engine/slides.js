@@ -115,8 +115,9 @@ export function deckLabel(name = "") {
     .replace(/\((\d+)\)/g, " ")             // "(1)" duplicate marker
     .replace(/^\s*\d+[\s._)-]*/, "")        // leading index "8 ", "8."
     .replace(/_/g, " ")
-    .replace(/\b(?:19|20)\d{2}\b/g, " ")    // stray year
+    .replace(/\b(?:19|20)\d{2}\b/g, " ")    // stray year ("Cache Memory 2024" -> "Cache Memory")
     .replace(/^[A-Z]{2,4}\b[\s_-]*/, "")    // leading subject acronym "COA "
+    .replace(/\s+[A-Z]$/, "")               // trailing version letter ("Cache Memory B" -> "Cache Memory")
     .replace(/\s+/g, " ")
     .trim();
   return s.length >= 3 ? s : stem.trim();
