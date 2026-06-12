@@ -11,7 +11,7 @@ import { useIsMobile } from "../useIsMobile.js";
 import { useDismissable } from "../useDismissable.js";
 import { summarize, byPpt } from "../engine/rank.js";
 import { NOT_ON_SLIDES } from "../engine/clusterCore.js";
-import { publishSubject, saveMySubject, submitContribution, listSubjects } from "../engine/libraryDb.js";
+import { publishSubject, saveMySubject, submitContribution, listSubjects, persistMyFiles, signedFileUrl } from "../engine/libraryDb.js";
 
 // DOM id for a PPT section, so the "By importance" view can scroll to it.
 const deckSlug = (d) => "ppt-" + String(d).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -283,6 +283,19 @@ function openFile(file) {
   } catch (e) { console.error("open file failed", e); }
 }
 
+// Open a source item that's either an in-memory File (fresh upload) or a stored
+// file { name, path } (a saved My Library subject, persisted to Storage). For a
+// stored file we open a blank tab synchronously (on the click gesture) and then
+// navigate it to the signed URL once it resolves, so popup blockers don't eat it.
+function openSourceItem(item) {
+  if (!item) return;
+  if (typeof File !== "undefined" && item instanceof File) return openFile(item);
+  if (item.path) {
+    const w = window.open("about:blank", "_blank");
+    signedFileUrl(item.path).then((u) => { if (w) { if (u) w.location = u; else w.close(); } });
+  }
+}
+
 // Build a clean, print-friendly study sheet (the ranked questions) and open it
 // in a new tab, where the browser's Print / Save-as-PDF takes over. Self-
 // contained HTML, so it needs no print stylesheet on the app itself.
@@ -321,7 +334,7 @@ function SourcesBar({ sources }) {
   if (!papers.length && !slides.length) return null;
   const lab = { fontFamily: C.font, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: C.faint, margin: "0 0 7px" };
   const link = (file, label, key) => (
-    <button key={key} onClick={() => openFile(file)} title={`Open ${file.name} in a new tab`}
+    <button key={key} onClick={() => openSourceItem(file)} title={`Open ${file.name} in a new tab`}
       style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: C.primary, background: C.primarySoft, border: "none", borderRadius: 8, padding: "5px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, maxWidth: 280 }}>
       <IconFile s={11} c={C.primary} />
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
@@ -459,7 +472,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
   );
   // Open the source paper behind a question (its uploaded file), if we still
   // have it in memory (self-upload session). sources.papers is pIdx-aligned.
-  const openSource = (pIdx) => { const p = (sources?.papers || [])[pIdx]; if (p?.pages?.[0]) openFile(p.pages[0]); };
+  const openSource = (pIdx) => { const p = (sources?.papers || [])[pIdx]; if (p?.pages?.[0]) openSourceItem(p.pages[0]); };
   const renderCard = (c, rank, headerChip) => (
     <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
       collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
@@ -497,13 +510,18 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
   // Signed-in users can save this analysis to their own (private) library.
   const saveMine = async () => {
     setMineState("saving");
+    let id;
     try {
-      await saveMySubject(
+      id = await saveMySubject(
         { title: subject || "My subject", code: publishDefaults.code, paperCount: data.paperCount, questionCount: data.questionCount, topicCount: ranked.length + unique.length },
         publishContent
       );
       setMineState("saved");
-    } catch (e) { console.error(e); setMineState("error"); }
+    } catch (e) { console.error(e); setMineState("error"); return; }
+    // Best-effort: persist the original files so this subject's papers stay
+    // viewable later. Isolated (fire-and-forget) so it can never flip the save
+    // state to error and no-ops cleanly until the storage bucket exists.
+    if (id && sources) persistMyFiles(id, publishContent, sources).catch((e) => console.error(e));
   };
 
   return (
