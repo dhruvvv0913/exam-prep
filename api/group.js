@@ -27,6 +27,37 @@ async function verifyUser(token) {
   }
 }
 
+const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SB_ANON = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const DAILY_CAP = Number(process.env.GROUP_DAILY_CAP || 60); // AI grouping calls / user / day
+
+// Count today's grouping calls for this user (their own rows via RLS). Fails
+// OPEN (returns 0) on any error — a missing api_usage table must never block use.
+async function callsToday(userId, token) {
+  try {
+    if (!SB_URL || !SB_ANON) return 0;
+    const since = new Date(); since.setHours(0, 0, 0, 0);
+    const url = `${SB_URL}/rest/v1/api_usage?select=id&kind=eq.group&user_id=eq.${userId}&created_at=gte.${since.toISOString()}`;
+    const r = await fetch(url, { headers: { apikey: SB_ANON, authorization: `Bearer ${token}`, Prefer: "count=exact" } });
+    if (!r.ok) return 0;
+    const cr = r.headers.get("content-range"); // "0-9/42"
+    const n = cr && cr.includes("/") ? parseInt(cr.split("/")[1], 10) : (await r.json()).length;
+    return Number.isFinite(n) ? n : 0;
+  } catch { return 0; }
+}
+
+// Log one grouping call (best-effort).
+async function logGroupCall(userId, email, token) {
+  try {
+    if (!SB_URL || !SB_ANON) return;
+    await fetch(`${SB_URL}/rest/v1/api_usage`, {
+      method: "POST",
+      headers: { apikey: SB_ANON, authorization: `Bearer ${token}`, "content-type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ user_id: userId, email: email || null, kind: "group" }),
+    });
+  } catch { /* best-effort */ }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
@@ -44,6 +75,7 @@ export default async function handler(req, res) {
   const topics = body?.topics || [];
   if (!Array.isArray(questions) || !questions.length) return res.status(400).json({ error: "no questions" });
   if (questions.length > 400) return res.status(400).json({ error: "too many questions" });
+  if (await callsToday(user.id, token) >= DAILY_CAP) return res.status(429).json({ error: "daily AI grouping limit reached — try again tomorrow" });
 
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
@@ -64,6 +96,7 @@ export default async function handler(req, res) {
     const jsonStr = (raw.match(/\{[\s\S]*\}/) || [raw])[0];
     const parsed = JSON.parse(jsonStr);
     if (!Array.isArray(parsed.groups)) return res.status(502).json({ error: "bad model output" });
+    await logGroupCall(user.id, user.email, token);
     return res.status(200).json({ groups: parsed.groups });
   } catch {
     return res.status(502).json({ error: "grouping failed" });
