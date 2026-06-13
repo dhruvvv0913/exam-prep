@@ -14,7 +14,7 @@ const LoadingScreen = React.lazy(() => import("./LoadingScreen.jsx"));
 const AnalysisScreen = React.lazy(() => import("./AnalysisScreen.jsx"));
 const LibraryScreen = React.lazy(() => import("./LibraryScreen.jsx"));
 const AdminScreen = React.lazy(() => import("./AdminScreen.jsx"));
-import { getSubjectContent, getMySubject } from "../engine/libraryDb.js";
+import { getSubjectContent, getMySubject, logUsage } from "../engine/libraryDb.js";
 import { groupViaApi } from "../engine/aiGroup.js";
 import { useAuth } from "../auth.jsx";
 
@@ -150,6 +150,7 @@ export default function App() {
     try {
       const r = await getSubjectContent(id);
       if (!r) return; // locked / not found (the library screen normally prevents this)
+      logUsage("open", id); // best-effort analytics (popular subjects)
       const key = `lib:${id}`;
       const p = readProgress(key);
       setResult(r);

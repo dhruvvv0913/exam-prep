@@ -6,7 +6,7 @@ import { C } from "../theme.js";
 import { IconArrow, IconClose } from "../components/icons.jsx";
 import { Tag, PrimaryButton, GhostButton } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
-import { listSubjects, listEntitlements, grantAccess, revokeAccess, deleteSubject, listContributions, approveContribution, rejectContribution } from "../engine/libraryDb.js";
+import { listSubjects, listEntitlements, grantAccess, revokeAccess, deleteSubject, listContributions, approveContribution, rejectContribution, listUsage } from "../engine/libraryDb.js";
 
 const card = { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 20, boxShadow: C.shadowSm };
 const input = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none" };
@@ -16,6 +16,7 @@ export default function AdminScreen({ onBack }) {
   const [subjects, setSubjects] = React.useState([]);
   const [grants, setGrants] = React.useState([]);
   const [contribs, setContribs] = React.useState([]);
+  const [usage, setUsage] = React.useState([]);
   const [email, setEmail] = React.useState("");
   const [subjectId, setSubjectId] = React.useState("");
   const [msg, setMsg] = React.useState(null);
@@ -23,8 +24,8 @@ export default function AdminScreen({ onBack }) {
 
   const refresh = React.useCallback(async () => {
     try {
-      const [subs, ent, cont] = await Promise.all([listSubjects(), listEntitlements(), listContributions()]);
-      setSubjects(subs); setGrants(ent); setContribs(cont);
+      const [subs, ent, cont, use] = await Promise.all([listSubjects(), listEntitlements(), listContributions(), listUsage()]);
+      setSubjects(subs); setGrants(ent); setContribs(cont); setUsage(use);
       if (subs.length && !subjectId) setSubjectId(subs[0].id);
     } catch (e) { setMsg({ kind: "err", text: e.message }); }
   }, [subjectId]);
@@ -44,6 +45,24 @@ export default function AdminScreen({ onBack }) {
   };
 
   const nameOf = (id) => subjects.find((s) => s.id === id)?.subject || id;
+
+  // Usage analytics (best-effort; stays empty until the api_usage table exists).
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const isToday = (t) => new Date(t) >= todayStart;
+  const groupCalls = usage.filter((u) => u.kind === "group");
+  const opens = usage.filter((u) => u.kind === "open");
+  const topOpened = (() => {
+    const m = new Map();
+    for (const o of opens) m.set(o.subject_id, (m.get(o.subject_id) || 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  })();
+  const stat = (label, value, sub) => (
+    <div style={{ minWidth: 110 }}>
+      <div style={{ fontFamily: C.font, fontSize: 22, fontWeight: 700, color: C.ink }}>{value}</div>
+      <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted }}>{label}</div>
+      <div style={{ fontFamily: C.font, fontSize: 11.5, color: C.faint }}>{sub}</div>
+    </div>
+  );
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
@@ -72,6 +91,30 @@ export default function AdminScreen({ onBack }) {
                   <button disabled={busy} onClick={() => run(() => rejectContribution(c.id), "Contribution rejected.")} style={{ fontFamily: C.font, fontSize: 12.5, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Reject</button>
                 </div>))}
             </div>
+          </div>
+        )}
+
+        {/* Usage analytics */}
+        {usage.length > 0 && (
+          <div style={{ ...card, marginBottom: 18 }}>
+            <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 16, color: C.ink, marginBottom: 12 }}>Usage</div>
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: topOpened.length ? 16 : 0 }}>
+              {stat("AI grouping calls", groupCalls.length, `${groupCalls.filter((u) => isToday(u.created_at)).length} today`)}
+              {stat("Subject opens", opens.length, `${opens.filter((u) => isToday(u.created_at)).length} today`)}
+            </div>
+            {topOpened.length > 0 && (
+              <div>
+                <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted, marginBottom: 7 }}>Most opened</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {topOpened.map(([sid, n]) => (
+                    <div key={sid || "?"} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontFamily: C.font, fontSize: 13, color: C.ink2 }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nameOf(sid)}</span>
+                      <span style={{ color: C.faint, flex: "0 0 auto" }}>{n}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

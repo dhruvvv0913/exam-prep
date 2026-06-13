@@ -126,6 +126,27 @@ export async function signedFileUrl(path) {
   } catch { return null; }
 }
 
+// --- usage analytics (best-effort; needs the api_usage table) --------------
+// Log a usage event (e.g. opening a library subject). Never throws / no-ops
+// until the table exists. (AI grouping calls are logged server-side instead.)
+export async function logUsage(kind, subjectId = null) {
+  try {
+    if (!supabase) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("api_usage").insert({ user_id: user.id, email: user.email || null, kind, subject_id: subjectId });
+  } catch { /* best-effort */ }
+}
+
+// Admin: recent usage rows (RLS lets the admin read everyone's). [] on error.
+export async function listUsage(limit = 1000) {
+  try {
+    const { data, error } = await supabase.from("api_usage").select("kind,subject_id,email,created_at").order("created_at", { ascending: false }).limit(limit);
+    if (error) return [];
+    return data || [];
+  } catch { return []; }
+}
+
 // --- admin only (RLS rejects non-admins) -------------------------------
 export async function publishSubject(meta, content) {
   const { error: e1 } = await supabase.from("subjects").upsert(meta);
