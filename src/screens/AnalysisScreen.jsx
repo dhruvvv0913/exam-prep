@@ -386,6 +386,68 @@ function SourcesBar({ sources }) {
   );
 }
 
+// "1-mark questions" disclosure: every 1-mark question across all papers,
+// grouped by source paper (newest first) — a quick cumulative view. Derived from
+// the groups, so it works for uploads and library subjects alike. View-only.
+function OneMarkersBar({ groups, papers }) {
+  const [open, setOpen] = React.useState(false);
+  const byPaper = React.useMemo(() => {
+    const m = new Map();
+    for (const g of groups || []) for (const it of g.items || []) {
+      if (it.marks !== 1) continue;
+      const k = it.pIdx ?? it.paperId ?? 0;
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(it);
+    }
+    return m;
+  }, [groups]);
+  const total = [...byPaper.values()].reduce((n, a) => n + a.length, 0);
+  if (!total) return null;
+
+  const ord = (id) => { const x = /(\d+)\s*([a-z]?)/i.exec(id || ""); return x ? Number(x[1]) * 100 + (x[2] ? x[2].toLowerCase().charCodeAt(0) - 96 : 0) : 9999; };
+  const qnum = (id) => String(id || "").replace(/^q/i, "");
+  const label = (k) => {
+    const meta = (papers || [])[k];
+    const fallback = byPaper.get(k)[0]?.paperId || `Paper ${Number(k) + 1}`;
+    if (!meta) return fallback;
+    const ex = meta.examType ? (meta.examType === "MID" ? "Mid-Sem" : "End-Sem") : null;
+    const bits = [meta.session, ex, meta.year].filter(Boolean);
+    return bits.length ? bits.join(" ") : (meta.name || fallback);
+  };
+  const keys = [...byPaper.keys()].sort((a, b) => ((papers?.[b]?.year ?? -1) - (papers?.[a]?.year ?? -1)) || (Number(a) - Number(b)));
+  const lab = { fontFamily: C.font, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, color: C.ink2, margin: "0 0 6px" };
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
+        style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+        <IconFile s={14} c={C.ink2} /> 1-mark questions
+        <span style={{ color: C.faint, fontWeight: 500 }}>{total} across {keys.length} {keys.length === 1 ? "paper" : "papers"}</span>
+        <IconChevron s={14} c={C.faint} dir={open ? "up" : "down"} />
+      </button>
+      {open && (
+        <div style={{ marginTop: 10, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+          {keys.map((k) => {
+            const qs = byPaper.get(k).slice().sort((a, b) => ord(a.id) - ord(b.id));
+            return (
+              <div key={k}>
+                <div style={lab}>{label(k)} <span style={{ color: C.faint, fontWeight: 500 }}>· {qs.length}</span></div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {qs.map((q, i) => (
+                    <div key={q.uid || i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontFamily: C.font, fontSize: 13, lineHeight: 1.5, color: C.ink2 }}>
+                      <span style={{ fontWeight: 600, color: C.muted, flex: "0 0 auto", minWidth: 22 }}>{qnum(q.id)}</span>
+                      <span style={{ minWidth: 0, textWrap: "pretty" }}>{q.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>);
+}
+
 // ---- screen ------------------------------------------------------------
 export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveMine, fromLibrary, sources, done, starred, onToggleDone, onToggleStar }) {
   const paperCount = data.paperCount;
@@ -551,6 +613,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
         </div>
 
         {sources && <SourcesBar sources={sources} />}
+        <OneMarkersBar groups={data.groups} papers={data.papers} />
 
         {data.skipped?.length > 0 && (
           <div style={{ fontFamily: C.font, fontSize: 13, color: C.ink2, background: C.goldSoft, border: `1px solid ${hexA(C.gold, 0.3)}`, borderRadius: 12, padding: "11px 14px", marginBottom: 16, lineHeight: 1.5 }}>
