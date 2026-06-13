@@ -80,6 +80,19 @@ test("byPpt buckets type-groups under their PPT; heaviest first, off-syllabus la
   assert.equal(decks[decks.length - 1].deck, NOT_ON_SLIDES);
 });
 
+test("summarize collapses exact duplicates within one paper but keeps cross-year repeats", () => {
+  const groups = [{ id: "g0", topic: "Cache", deck: null, items: [
+    { uid: "0__q1", pIdx: 0, id: "q1", text: "Explain cache mapping.", paperId: "Spring 2023", year: 2023, marks: 5 },
+    { uid: "0__q1b", pIdx: 0, id: "q1", text: "Explain  cache  mapping.", paperId: "Spring 2023", year: 2023, marks: 5 }, // same paper, same text
+    { uid: "1__q1", pIdx: 1, id: "q1", text: "Explain cache mapping.", paperId: "Spring 2024", year: 2024, marks: 5 }, // different year — kept
+  ] }];
+  const { ranked } = summarize(groups);
+  assert.equal(ranked.length, 1);
+  assert.equal(ranked[0].variants, 2);    // the within-paper dup collapsed (not 3)
+  assert.equal(ranked[0].appears, 2);     // still spans 2 papers
+  assert.equal(ranked[0].totalMarks, 10); // dup didn't double the marks (not 15)
+});
+
 test("byPpt ignores groups with no deck (no slides were uploaded)", () => {
   const out = byPpt([{ id: "g0", topic: "X", deck: null, items: [{ id: "q1", text: "t", pIdx: 0, marks: 5 }] }]);
   assert.deepEqual(out, []);
