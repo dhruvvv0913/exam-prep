@@ -64,27 +64,39 @@ export function groupsFromClusters(clusters) {
   }));
 }
 
+const normText = (t) => String(t).toLowerCase().replace(/\s+/g, " ").replace(/[^a-z0-9 ]/g, "").trim();
+
 // One group -> its derived display row (shared by summarize and byPpt).
 function enrichGroup(g) {
-  // "appears" = distinct uploaded papers (by pIdx), robust to two papers
-  // sharing a session/year label.
-  const papers = new Set(g.items.map((it) => it.pIdx ?? it.paperId));
-  const rep = representative(g.items);
-  const marksOf = (it) => (typeof it.marks === "number" ? it.marks : 5);
-  const totalMarks = g.items.reduce((s, it) => s + marksOf(it), 0);
   // newest year first; unknown years sink to the bottom
   const ordered = [...g.items].sort((a, b) => (b.year ?? -1) - (a.year ?? -1));
+  // Collapse exact duplicates WITHIN the same paper (a re-uploaded paper or a
+  // parser glitch) so a card isn't padded with identical lines. Verbatim repeats
+  // across DIFFERENT papers are kept — those are the repeats we exist to surface.
+  const seen = new Set();
+  const items = ordered.filter((it) => {
+    const k = `${it.pIdx ?? it.paperId}|${normText(it.text)}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  // "appears" = distinct uploaded papers (by pIdx), robust to two papers
+  // sharing a session/year label.
+  const papers = new Set(items.map((it) => it.pIdx ?? it.paperId));
+  const rep = representative(items);
+  const marksOf = (it) => (typeof it.marks === "number" ? it.marks : 5);
+  const totalMarks = items.reduce((s, it) => s + marksOf(it), 0);
   return {
     id: g.id,
     topic: g.topic,
     deck: g.deck ?? null, // which PPT this type belongs to (for the By PPT view)
-    totalMarks, // collective marks across all questions in the group
+    totalMarks, // collective marks across all (de-duplicated) questions
     q: rep.text, // representative (kept for back-compat / Node scripts)
     appears: papers.size,
-    variants: g.items.length,
-    // full list of questions in the group (year-sorted), for the card layout
-    questions: ordered.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, pIdx: it.pIdx ?? null, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
-    similars: g.items
+    variants: items.length,
+    // full list of questions in the group (year-sorted, de-duped), for the card
+    questions: items.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, pIdx: it.pIdx ?? null, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
+    similars: items
       .filter((it) => it !== rep)
       .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),
     unique: papers.size < 2,

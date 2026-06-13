@@ -115,6 +115,8 @@ export default function App() {
   const [useAi, setUseAi] = React.useState(true); // signed-in users get LLM grouping (with local fallback)
   const [done, setDone] = React.useState(() => new Set(readProgress(saved.progressKey || "upload").done));
   const [starred, setStarred] = React.useState(() => new Set(readProgress(saved.progressKey || "upload").starred));
+  const [notice, setNotice] = React.useState(null); // transient error/info toast
+  React.useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(null), 4500); return () => clearTimeout(t); }, [notice]);
 
   // Persist the result + screen + which progress bucket is active.
   React.useEffect(() => {
@@ -155,14 +157,14 @@ export default function App() {
       setDone(new Set(p.done));
       setStarred(new Set(p.starred));
       setScreen("analysis");
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setNotice("Couldn't open that subject — please try again."); }
   };
 
   // Open one of the user's own saved analyses ("My Library").
   const openMySubject = async (id) => {
     try {
       const r = await getMySubject(id);
-      if (!r) return;
+      if (!r) { setNotice("That saved subject couldn't be loaded."); return; }
       const key = `mine:${id}`;
       const p = readProgress(key);
       setResult(r);
@@ -170,7 +172,7 @@ export default function App() {
       setDone(new Set(p.done));
       setStarred(new Set(p.starred));
       setScreen("analysis");
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setNotice("Couldn't open that saved subject."); }
   };
 
   return (
@@ -190,5 +192,8 @@ export default function App() {
             : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
         </React.Suspense>
       </div>
+      {notice && (
+        <div onClick={() => setNotice(null)} role="status" style={{ position: "fixed", bottom: 22, left: "50%", transform: "translateX(-50%)", zIndex: 60, maxWidth: "90vw", background: C.ink, color: "#fff", padding: "11px 16px", borderRadius: 12, fontFamily: C.font, fontSize: 13.5, fontWeight: 500, boxShadow: C.shadowLg, cursor: "pointer" }}>{notice}</div>
+      )}
     </div>);
 }
