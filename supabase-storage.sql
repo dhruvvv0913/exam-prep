@@ -10,18 +10,22 @@ values ('subject-files', 'subject-files', false)
 on conflict (id) do nothing;
 
 -- A user reads/writes/deletes ONLY their own files (first path segment = uid).
+drop policy if exists "subject-files: owner read" on storage.objects;
 create policy "subject-files: owner read"
   on storage.objects for select
   using (bucket_id = 'subject-files' and (storage.foldername(name))[1] = auth.uid()::text);
 
+drop policy if exists "subject-files: owner insert" on storage.objects;
 create policy "subject-files: owner insert"
   on storage.objects for insert
   with check (bucket_id = 'subject-files' and (storage.foldername(name))[1] = auth.uid()::text);
 
+drop policy if exists "subject-files: owner update" on storage.objects;
 create policy "subject-files: owner update"
   on storage.objects for update
   using (bucket_id = 'subject-files' and (storage.foldername(name))[1] = auth.uid()::text);
 
+drop policy if exists "subject-files: owner delete" on storage.objects;
 create policy "subject-files: owner delete"
   on storage.objects for delete
   using (bucket_id = 'subject-files' and (storage.foldername(name))[1] = auth.uid()::text);

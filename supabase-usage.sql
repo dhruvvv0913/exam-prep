@@ -16,7 +16,9 @@ create table if not exists public.api_usage (
 create index if not exists api_usage_user_created_idx on public.api_usage (user_id, created_at);
 
 alter table public.api_usage enable row level security;
+drop policy if exists "usage: insert own" on public.api_usage;
 create policy "usage: insert own"
   on public.api_usage for insert with check (user_id = auth.uid());
+drop policy if exists "usage: read own or admin" on public.api_usage;
 create policy "usage: read own or admin"
   on public.api_usage for select using (user_id = auth.uid() or is_admin());

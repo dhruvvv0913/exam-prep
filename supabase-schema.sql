@@ -20,6 +20,7 @@ create table if not exists public.my_subjects (
   created_at timestamptz default now()
 );
 alter table public.my_subjects enable row level security;
+drop policy if exists "my_subjects are private to their owner" on public.my_subjects;
 create policy "my_subjects are private to their owner"
   on public.my_subjects for all
   using (user_id = auth.uid())
@@ -39,13 +40,17 @@ create table if not exists public.contributions (
   created_at timestamptz default now()
 );
 alter table public.contributions enable row level security;
+drop policy if exists "anyone signed-in can submit a contribution" on public.contributions;
 create policy "anyone signed-in can submit a contribution"
   on public.contributions for insert
   with check (user_id = auth.uid());
+drop policy if exists "submitters see their own; admin sees all" on public.contributions;
 create policy "submitters see their own; admin sees all"
   on public.contributions for select
   using (user_id = auth.uid() or is_admin());
+drop policy if exists "only admin can update contributions" on public.contributions;
 create policy "only admin can update contributions"
   on public.contributions for update using (is_admin());
+drop policy if exists "only admin can delete contributions" on public.contributions;
 create policy "only admin can delete contributions"
   on public.contributions for delete using (is_admin());
