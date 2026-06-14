@@ -66,11 +66,9 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     // pIdx (paper index) = which uploaded paper a question came from.
     for (const q of questions) items.push({ ...q, paperId, year: meta.year, pIdx: i });
     if (failed || questions.length === 0) skipped.push({ name, reason: failed ? "unreadable" : "no-questions" });
-    // Analysed fine, but it looks like an answer key — warn (non-destructive).
-    else if (meta.solution) {
-      warnings.push({ name, reason: "solution-sheet" });
-      onProgress?.({ stage: "paper-warning", paper: name, reason: "solution-sheet" });
-    }
+    // Papers that come WITH solutions are analysed normally and silently — the
+    // model answers are stripped to question stems (parsePaper.cleanText), so a
+    // solution-bearing PYQ just works; we never warn or block on it.
 
     onProgress?.({ stage: "extracted", index: i, total: paperFiles.length, questions: items.length });
   }
