@@ -1,0 +1,14 @@
+{
+  "name": "PYQ-LY · Exam Prep",
+  "short_name": "PYQ-LY",
+  "description": "Find the past-exam questions that repeat year after year, ranked by how often they come back.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3f51c4",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

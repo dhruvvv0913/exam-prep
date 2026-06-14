@@ -11,3 +11,11 @@ createRoot(document.getElementById('root')).render(
     </AuthProvider>
   </StrictMode>,
 )
+
+// Register the service worker (installable PWA + offline app shell). Production
+// only — a SW under `vite dev` interferes with HMR. Best-effort; failures are ignored.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
