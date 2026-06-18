@@ -4,7 +4,7 @@
 // screen ("Edit groups") edits those groups directly.
 import React from "react";
 import { C, hexA } from "../theme.js";
-import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose, IconFile, IconPlus } from "../components/icons.jsx";
+import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose, IconFile, IconPlus, IconSparkle } from "../components/icons.jsx";
 import { Tag, HeatBar, GhostButton, PrimaryButton } from "../components/atoms.jsx";
 import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
@@ -12,6 +12,7 @@ import { useDismissable } from "../useDismissable.js";
 import { summarize, byPpt } from "../engine/rank.js";
 import { NOT_ON_SLIDES } from "../engine/clusterCore.js";
 import { publishSubject, saveMySubject, submitContribution, listSubjects, persistMyFiles, signedFileUrl } from "../engine/libraryDb.js";
+import { refineViaApi } from "../engine/aiGroup.js";
 
 // DOM id for a PPT section, so the "By importance" view can scroll to it.
 const deckSlug = (d) => "ppt-" + String(d).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -448,6 +449,63 @@ function OneMarkersBar({ groups, papers }) {
     </div>);
 }
 
+// "Improve result" preview: shows the LLM-corrected grouping with re-assigned
+// questions flagged, and lets the user Apply or Discard. Read-only until applied.
+function RefinePreview({ oldGroups, newGroups, onApply, onClose, busy }) {
+  const dialogRef = useDismissable(onClose);
+  const oldTopic = React.useMemo(() => {
+    const m = new Map();
+    for (const g of oldGroups) for (const it of g.items) m.set(it.uid, g.topic);
+    return m;
+  }, [oldGroups]);
+  let moved = 0;
+  for (const g of newGroups) for (const it of g.items) { const o = oldTopic.get(it.uid); if (o && o !== g.topic) moved++; }
+  const ordered = [...newGroups].sort((a, b) => b.items.length - a.items.length);
+  const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+  return (
+    <React.Fragment>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Improved grouping preview" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(720px,94vw)", maxHeight: "86vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, overflow: "hidden", outline: "none" }}>
+        <div style={{ flex: "0 0 auto", padding: "18px 22px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Improved grouping</div>
+            <div style={{ fontFamily: C.font, fontSize: 13, color: C.muted, marginTop: 2, lineHeight: 1.45 }}>
+              {moved === 0 ? "No questions needed re-assigning — your grouping already looks accurate." : `${moved} question${moved === 1 ? "" : "s"} re-assigned · ${oldGroups.length} → ${newGroups.length} groups. Review and apply.`}
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 4, flex: "0 0 auto" }}><IconClose s={18} c={C.faint} /></button>
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 22px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {ordered.map((g) => (
+            <div key={g.id} style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: C.font, fontWeight: 600, fontSize: 14.5, color: C.ink }}>{g.topic}</span>
+                {g.deck && <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, background: "#f1f2f8", borderRadius: 7, padding: "2px 7px" }}>{g.deck}</span>}
+                <span style={{ fontFamily: C.font, fontSize: 12, color: C.faint }}>{g.items.length} {g.items.length === 1 ? "question" : "questions"}</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {g.items.map((it) => {
+                  const o = oldTopic.get(it.uid);
+                  const wasMoved = o && o !== g.topic;
+                  return (
+                    <div key={it.uid} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontFamily: C.font, fontSize: 13, lineHeight: 1.5, color: C.ink2 }}>
+                      <span style={{ color: C.faint, fontSize: 11, flex: "0 0 auto", marginTop: 2 }}>{it.year ?? "?"}</span>
+                      <span style={{ minWidth: 0, textWrap: "pretty" }}>{clip(it.text, 140)}{wasMoved && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: C.primary, background: C.primarySoft, borderRadius: 6, padding: "1px 6px", whiteSpace: "nowrap" }}>moved from “{clip(o, 24)}”</span>}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: "0 0 auto", padding: "14px 22px", borderTop: `1px solid ${C.line}`, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <GhostButton onClick={onClose}>Discard</GhostButton>
+          <PrimaryButton onClick={onApply} disabled={busy}>Apply improved grouping</PrimaryButton>
+        </div>
+      </div>
+    </React.Fragment>);
+}
+
 // ---- screen ------------------------------------------------------------
 export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveMine, fromLibrary, sources, done, starred, onToggleDone, onToggleStar }) {
   const paperCount = data.paperCount;
@@ -460,12 +518,16 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
   const [showPublish, setShowPublish] = React.useState(false);
   const [showContribute, setShowContribute] = React.useState(false);
   const [mineState, setMineState] = React.useState("idle"); // idle | saving | saved | error
+  const [refineState, setRefineState] = React.useState("idle"); // idle | running | error ("Improve result")
+  const [refinePreview, setRefinePreview] = React.useState(null); // proposed improved groups (awaiting Apply)
   const [view, setView] = React.useState("importance"); // "importance" | "ppt"
   const [flash, setFlash] = React.useState(null);   // id of the card to briefly highlight after a jump
   const pendingScroll = React.useRef(null);
 
   const { ranked, unique } = React.useMemo(() => summarize(data.groups), [data.groups]);
   const pptView = React.useMemo(() => byPpt(data.groups), [data.groups]);
+  // Chapter (PPT) names the refine pass should keep tagging against.
+  const chapters = React.useMemo(() => [...new Set((data.groups || []).map((g) => g.deck).filter((d) => d && d !== NOT_ON_SLIDES))], [data.groups]);
   // The "By PPT" view only exists when course slides were uploaded (groups carry
   // a deck). Without slides, byPpt is empty and we show only "By importance".
   const hasPpt = pptView.length > 0;
@@ -586,6 +648,17 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
     if (id && sources) persistMyFiles(id, publishContent, sources).catch((e) => console.error(e));
   };
 
+  // "Improve result": LLM audit-and-fix pass over the current grouping, shown as
+  // a preview the user can Apply or Discard. Signed-in only (uses the proxy).
+  const improveResult = async () => {
+    setRefineState("running");
+    try {
+      const improved = await refineViaApi(data.groups, chapters);
+      setRefinePreview(improved);
+      setRefineState("idle");
+    } catch (e) { console.error("improve failed", e); setRefineState("error"); }
+  };
+
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 1040, margin: "0 auto", padding: isMobile ? "24px 16px 48px" : "34px 32px 60px" }}>
@@ -599,6 +672,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, flexWrap: "wrap" }}>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>
             <GhostButton onClick={() => exportStudySheet({ groups: data.groups, subject, paperCount })}><IconFile s={15} c={C.ink2} /> Study sheet</GhostButton>
+            {canSaveMine && <GhostButton onClick={improveResult} disabled={refineState === "running"} title="AI re-checks the grouping and fixes any mis-assigned questions — you preview before it applies"><IconSparkle s={15} c={refineState === "running" ? C.muted : C.primary} /> {refineState === "running" ? "Improving…" : refineState === "error" ? "Retry improve" : "Improve result"}</GhostButton>}
             {canSaveMine && (
               <GhostButton onClick={mineState === "saved" ? undefined : saveMine}>
                 {mineState === "saved"
@@ -700,5 +774,6 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
 
       {showPublish && <PublishModal defaults={publishDefaults} content={publishContent} onClose={() => setShowPublish(false)} />}
       {showContribute && <ContributeModal defaults={publishDefaults} content={publishContent} onClose={() => setShowContribute(false)} />}
+      {refinePreview && <RefinePreview oldGroups={data.groups} newGroups={refinePreview} busy={false} onApply={() => { onGroupsChange(refinePreview); setRefinePreview(null); }} onClose={() => setRefinePreview(null)} />}
     </div>);
 }
