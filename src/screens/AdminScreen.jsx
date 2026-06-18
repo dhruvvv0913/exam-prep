@@ -74,25 +74,25 @@ export default function AdminScreen({ onBack }) {
 
         {msg && <div style={{ fontFamily: C.font, fontSize: 13.5, padding: "10px 14px", borderRadius: 10, marginBottom: 18, color: msg.kind === "ok" ? C.good : "#c0392b", background: msg.kind === "ok" ? C.goodSoft : "#fdecea" }}>{msg.text}</div>}
 
-        {/* Pending contributions */}
-        {contribs.length > 0 && (
-          <div style={{ ...card, marginBottom: 18 }}>
-            <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 16, color: C.ink, marginBottom: 12 }}>Pending contributions ({contribs.length})</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {contribs.map((c) => (
-                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 10, flexWrap: "wrap" }}>
-                  <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                    <div style={{ fontFamily: C.font, fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}{c.code ? ` · ${c.code}` : ""}</div>
-                    <div style={{ fontFamily: C.font, fontSize: 12, color: C.faint }}>
-                      {c.email || "anonymous"} · {c.content?.questionCount ?? "?"} questions · {c.target_subject_id ? `→ add to “${nameOf(c.target_subject_id)}”` : "new subject"}
+        {/* Pending contributions — always shown so the review area is findable */}
+        <div style={{ ...card, marginBottom: 18 }}>
+          <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 16, color: C.ink, marginBottom: 12 }}>Pending contributions ({contribs.length})</div>
+          {contribs.length === 0
+            ? <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.faint, lineHeight: 1.5 }}>Nothing awaiting review yet — when a signed-in student uses “Contribute to library”, their submission appears here to approve or reject.</div>
+            : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {contribs.map((c) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 10, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                      <div style={{ fontFamily: C.font, fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}{c.code ? ` · ${c.code}` : ""}</div>
+                      <div style={{ fontFamily: C.font, fontSize: 12, color: C.faint }}>
+                        {c.email || "anonymous"} · {c.content?.questionCount ?? "?"} questions · {c.target_subject_id ? `→ add to “${nameOf(c.target_subject_id)}”` : "new subject"}
+                      </div>
                     </div>
-                  </div>
-                  <button disabled={busy} onClick={() => run(() => approveContribution(c), "Contribution approved.")} style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: "#fff", background: C.good, border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Approve</button>
-                  <button disabled={busy} onClick={() => run(() => rejectContribution(c.id), "Contribution rejected.")} style={{ fontFamily: C.font, fontSize: 12.5, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Reject</button>
-                </div>))}
-            </div>
-          </div>
-        )}
+                    <button disabled={busy} onClick={() => run(() => approveContribution(c), "Contribution approved.")} style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: "#fff", background: C.good, border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Approve</button>
+                    <button disabled={busy} onClick={() => run(() => rejectContribution(c.id), "Contribution rejected.")} style={{ fontFamily: C.font, fontSize: 12.5, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Reject</button>
+                  </div>))}
+              </div>}
+        </div>
 
         {/* Usage analytics */}
         {usage.length > 0 && (
