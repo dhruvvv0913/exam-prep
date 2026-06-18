@@ -9,7 +9,7 @@
 // Reuses VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (already set) to verify the
 // caller's session token. Optional: GEMINI_MODEL (defaults to gemini-2.0-flash).
 
-import { buildGroupingPrompt } from "../src/engine/aiPrompt.js";
+import { buildGroupingPrompt, buildRefinePrompt } from "../src/engine/aiPrompt.js";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
@@ -73,6 +73,7 @@ export default async function handler(req, res) {
   if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
   const questions = body?.questions;
   const topics = body?.topics || [];
+  const current = body?.current || null; // present => "improve/refine" an existing grouping
   if (!Array.isArray(questions) || !questions.length) return res.status(400).json({ error: "no questions" });
   if (questions.length > 400) return res.status(400).json({ error: "too many questions" });
   if (await callsToday(user.id, token) >= DAILY_CAP) return res.status(429).json({ error: "daily AI grouping limit reached — try again tomorrow" });
@@ -83,7 +84,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildGroupingPrompt(questions, topics) }] }],
+        contents: [{ parts: [{ text: (Array.isArray(current) && current.length) ? buildRefinePrompt(questions, current, topics) : buildGroupingPrompt(questions, topics) }] }],
         // thinkingBudget:0 disables 2.5-flash "thinking" (not needed for this
         // structured task; left on it eats the token budget and truncates JSON).
         // Only 2.5 models accept thinkingConfig, so gate it on the model name.

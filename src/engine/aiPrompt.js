@@ -37,6 +37,46 @@ Respond with ONLY a JSON object, no prose, in exactly this shape:
 {"groups":[{"chapter":${has ? `"<a chapter from the list above, or 'Not on slides'>"` : "null"},"topic":"<short type label>","ids":[<question numbers>]}]}`;
 }
 
+// "Improve result" — a QUALITY-CHECK pass over an EXISTING grouping. The model
+// sees the current groups and only CORRECTS mistakes (move a misfit question,
+// merge same-type groups, split a mixed one, fix labels) rather than regrouping
+// from scratch. Output shape is identical to buildGroupingPrompt, so the same
+// mapping applies. `current` = [{ topic, chapter, ids:[1-based question #s] }].
+export function buildRefinePrompt(questions, current, chapters = []) {
+  const numbered = questions
+    .map((q, i) => `${i + 1}. ${String(q.text || "").replace(/\s+/g, " ").slice(0, 400)}`)
+    .join("\n");
+  const has = chapters && chapters.length;
+  const chapterList = has ? chapters.map((c) => `- ${c}`).join("\n") : "(none)";
+  const cur = (current || [])
+    .map((g, i) => `${i + 1}. "${g.topic}"${has && g.chapter ? ` [chapter: ${g.chapter}]` : ""} → questions ${(g.ids || []).join(", ")}`)
+    .join("\n");
+  return `You are QUALITY-CHECKING an existing grouping of past-exam questions for a study tool. They were auto-grouped into "question types", but some questions may sit in the wrong group, some groups may be duplicates of the same type, some may mix two types, and some labels may be unclear.
+
+Questions (numbered):
+${numbered}
+
+Current grouping:
+${cur}
+
+${has
+  ? `Course chapters:
+${chapterList}
+
+Keep each group tagged with the ONE chapter it belongs to — copy a chapter name VERBATIM, or "Not on slides" if none fits.`
+  : `No chapters were provided, so set "chapter" to null for every group.`}
+
+AUDIT and CORRECT — change ONLY what is actually wrong, and leave correct groupings untouched:
+- Move a question into the group whose type it genuinely matches.
+- MERGE groups that are really the same question-type.
+- SPLIT a group that clearly mixes two distinct types.
+- Fix unclear or wrong "topic" labels (short, student-friendly).
+- Use EVERY question exactly once (each number appears in exactly one group).
+
+Respond with ONLY the corrected FULL grouping as JSON, no prose, in exactly this shape:
+{"groups":[{"chapter":${has ? `"<a chapter from the list above, or 'Not on slides'>"` : "null"},"topic":"<short type label>","ids":[<question numbers>]}]}`;
+}
+
 // Normalise the model's chapter string to a deck label. Off-syllabus / missing
 // chapters collapse to NOT_ON_SLIDES; when no slides were provided, deck is null
 // (so only the "By importance" view shows).
