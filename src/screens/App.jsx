@@ -140,7 +140,13 @@ export default function App() {
   const start = () => setScreen("loading");
 
   // A fresh upload analysis: own progress bucket, reset.
-  const onDone = (r) => { setResult(r); setProgressKey("upload"); setDone(new Set()); setStarred(new Set()); setScreen("analysis"); };
+  const onDone = (r) => {
+    setResult(r); setProgressKey("upload"); setDone(new Set()); setStarred(new Set()); setScreen("analysis");
+    // If the signed-in AI grouping fell back to basic grouping, say so plainly.
+    if (r?.aiError) setNotice(/\b429\b|limit/i.test(r.aiError)
+      ? "Daily AI grouping limit reached — used basic grouping for now. Your results are ready."
+      : "AI grouping was busy — used the built-in grouping instead. Your results are ready.");
+  };
   const onGroupsChange = (groups) => setResult((r) => ({ ...r, groups }));
 
   const openAdmin = () => setScreen("admin");
@@ -189,6 +195,7 @@ export default function App() {
           {screen === "analysis" && (result
             ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && fromUpload} canSaveMine={!!auth.user && fromUpload} fromLibrary={fromLibrary}
                 sources={fromUpload ? { papers, slides: handouts } : (result?.files || null)}
+                onNotify={setNotice}
                 done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
             : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
         </React.Suspense>
