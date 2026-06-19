@@ -5,7 +5,7 @@
 import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose, IconFile, IconPlus, IconSparkle } from "../components/icons.jsx";
-import { Tag, HeatBar, GhostButton, PrimaryButton } from "../components/atoms.jsx";
+import { Tag, HeatBar, GhostButton, PrimaryButton, CountUp } from "../components/atoms.jsx";
 import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { useDismissable } from "../useDismissable.js";
@@ -199,9 +199,9 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
   const lit = flash === `topic-${cluster.id}`;
   return (
     <div id={`topic-${cluster.id}`}
-      onMouseEnter={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowMd; }}
-      onMouseLeave={(e) => { if (!lit) e.currentTarget.style.boxShadow = C.shadowSm; }}
-      style={{ background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
+      onMouseEnter={(e) => { if (!lit) { e.currentTarget.style.boxShadow = C.shadowMd; e.currentTarget.style.transform = "translateY(-2px)"; } }}
+      onMouseLeave={(e) => { if (!lit) { e.currentTarget.style.boxShadow = C.shadowSm; e.currentTarget.style.transform = "none"; } }}
+      style={{ background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s, transform .2s ease", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
       {/* header (click / Enter / Space to collapse/expand) */}
       <div onClick={onToggle} role="button" tabIndex={0} aria-expanded={!collapsed}
         aria-label={`${cluster.topic} — ${collapsed ? "expand" : "collapse"}`}
@@ -789,7 +789,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
         {allGroups.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontFamily: C.font, fontSize: 12.5, color: C.muted, marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, color: C.ink2 }}>Studied {donePct}%</span>
+              <span style={{ fontWeight: 600, color: C.ink2 }}>Studied <CountUp to={donePct} suffix="%" /></span>
               <span>{doneGroups.length} of {allGroups.length} topics · {doneMarks}/{totalMarksAll} marks done</span>
             </div>
             <div style={{ height: 8, borderRadius: 999, background: "#e3e5f1", overflow: "hidden" }}>
@@ -809,6 +809,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           </div>
         )}
 
+        <div key={effectiveView} style={{ animation: "fadein .35s ease" }}>
         {effectiveView === "importance" && <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {ranked.length === 0
             ? <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
@@ -846,6 +847,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
             )}
           </div>
         )}
+        </div>
       </div>
 
       {showPublish && <PublishModal defaults={publishDefaults} content={publishContent} onClose={() => setShowPublish(false)} />}

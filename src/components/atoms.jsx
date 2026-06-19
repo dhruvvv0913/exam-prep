@@ -1,5 +1,30 @@
 // Shared UI atoms for PYQ-LY. Ported verbatim from prototype-ui.jsx.
+import React from "react";
 import { C, hexA } from "../theme.js";
+
+// Animated number: tweens to `to` (from 0 on first mount, then between changes)
+// with an easeOutCubic. Used for headline stats / progress so they feel alive.
+// Respects reduced-motion by snapping (a near-zero duration).
+export function CountUp({ to, dur = 750, suffix = "" }) {
+  const [n, setN] = React.useState(0);
+  const fromRef = React.useRef(0);
+  React.useEffect(() => {
+    const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const from = fromRef.current;
+    if (reduce || dur <= 0) { setN(to); fromRef.current = to; return; }
+    let raf, start;
+    const tick = (t) => {
+      if (!start) start = t;
+      const p = Math.min(1, (t - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setN(Math.round(from + (to - from) * eased));
+      if (p < 1) raf = requestAnimationFrame(tick); else fromRef.current = to;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [to, dur]);
+  return <React.Fragment>{n}{suffix}</React.Fragment>;
+}
 
 export function Logo({ onClick }) {
   return (
@@ -29,7 +54,7 @@ export function HeatBar({ value, max, w = 64 }) {
   const pct = Math.max(12, Math.round((value / (max || 1)) * 100));
   return (
     <div style={{ width: w, height: 6, borderRadius: 999, background: "#e9eaf4", overflow: "hidden", flex: "0 0 auto" }}>
-      <div style={{ width: pct + "%", height: "100%", background: `linear-gradient(90deg, ${C.primary}, #5b6cdb)`, borderRadius: 999 }} />
+      <div style={{ width: pct + "%", height: "100%", background: `linear-gradient(90deg, ${C.primary}, #5b6cdb)`, borderRadius: 999, transformOrigin: "left", animation: "growx .9s cubic-bezier(.4,0,.2,1) both" }} />
     </div>);
 }
 
