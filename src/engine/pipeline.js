@@ -31,7 +31,6 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
   const items = [];
   const papers = [];
   const skipped = []; // papers we couldn't read or that yielded no questions
-  const warnings = []; // papers we analysed but flagged (e.g. answer keys)
 
   // When there's no AI grouper we'll definitely need the in-browser embedder,
   // so start downloading its chunk in parallel with reading the papers (so it
@@ -142,7 +141,6 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     paperCount: paperFiles.length,
     topicCount,
     skipped, // [{ name, reason }] — papers that were unreadable or had no questions
-    warnings, // [{ name, reason }] — analysed but flagged (e.g. "solution-sheet")
     aiError, // null, or the reason AI grouping fell back to basic grouping (e.g. "group api 429")
   };
 }
