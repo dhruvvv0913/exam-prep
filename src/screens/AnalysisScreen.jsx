@@ -783,7 +783,9 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
         {effectiveView === "importance" && <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {ranked.length === 0
             ? <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
-                No repeated concepts yet. Upload papers from <strong>two or more years</strong> of the same subject and we'll surface the questions that come back.
+                {paperCount <= 1
+                  ? <React.Fragment>This is a <strong>single paper</strong>, so there's nothing to compare against yet.{!fromLibrary && <React.Fragment> Upload two or more past papers of the same subject and we'll surface the questions that come back across years.</React.Fragment>} Everything found is listed below.</React.Fragment>
+                  : <React.Fragment>No concept repeated across these <strong>{paperCount} papers</strong> yet — they may cover different syllabi, or each tested distinct topics. Everything found is listed below.</React.Fragment>}
               </div>
             : rankedF.length > 0
               ? rankedF.map((c) => renderCard(c, rankOf.get(c.id), pptChip(c)))
@@ -792,7 +794,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           {uniqueF.length > 0 && <React.Fragment>
             <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "8px 4px" }}>
               <div style={{ flex: 1, height: 1, background: C.line }} />
-              <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, whiteSpace: "nowrap", fontWeight: 500 }}>Asked once — lower priority</span>
+              <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, whiteSpace: "nowrap", fontWeight: 500 }}>{ranked.length === 0 ? "All questions found" : "Asked once — lower priority"}</span>
               <div style={{ flex: 1, height: 1, background: C.line }} />
             </div>
             {uniqueF.map((c) => renderCard(c, 0, pptChip(c)))}
