@@ -14,15 +14,11 @@
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { ocrLines } from "./ocr.js";
+import { findRegion } from "./cropCore.js"; // pure matching/bounds (unit-tested)
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-// A top-level "1." / "1)" or a part "(a)" / "a)" — the start of a new unit.
-const MARK = /^\s*(\(?\d{1,2}\s*[.)]|\(?[a-z]\s*[.)])/i;
 const CROP_SCALE = 2; // render scale for the final crop (positions are scale-free)
-
-const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-const wordsOf = (s) => norm(s).split(" ").filter(Boolean);
 const isPdf = (f) => f && (f.type === "application/pdf" || /\.pdf$/i.test(f.name || ""));
 
 // Caches keyed on the stable per-paper `pages[]` array (from the session's
@@ -109,26 +105,6 @@ function pagesOf(pages) {
   return p;
 }
 
-// How well a line STARTS the given question: the run of the question's first
-// words that match consecutively at (near) the start of the line. Robust to
-// marker differences and minor OCR drift because the question text and the line
-// text come from the same extraction.
-function startScore(lineText, qw) {
-  const lw = wordsOf(lineText);
-  if (!lw.length || !qw.length) return 0;
-  // Try each start position near the line start (skipping a leading marker
-  // token) and keep the LONGEST run — so "(a) A cache…" → "a a cache…" still
-  // aligns on the content "a cache…" rather than stopping on the marker's "a".
-  let best = 0;
-  for (let start = 0; start <= 2 && start < lw.length; start++) {
-    if (lw[start] !== qw[0]) continue;
-    let n = 0;
-    while (n < qw.length && start + n < lw.length && lw[start + n] === qw[n]) n++;
-    if (n > best) best = n;
-  }
-  return best;
-}
-
 // Crop the strip for `questionText` out of `pages` (a paper's File[]). Returns
 // an object-URL for a PNG, or null if the question couldn't be located. Cached.
 export async function getQuestionCrop(pages, questionText) {
@@ -139,25 +115,11 @@ export async function getQuestionCrop(pages, questionText) {
 
   const job = (async () => {
     const entries = await pagesOf(pages);
-    const qw = wordsOf(questionText).slice(0, 8);
-    let best = null; // { pi, li, sc }
-    for (let pi = 0; pi < entries.length; pi++) {
-      const ls = entries[pi].lines;
-      for (let li = 0; li < ls.length; li++) {
-        const sc = startScore(ls[li].text, qw);
-        if (sc >= 3 && (!best || sc > best.sc)) best = { pi, li, sc };
-      }
-    }
-    if (!best) return null;
+    const region = findRegion(entries, questionText); // pure: { pageIndex, topFrac, botFrac } | null
+    if (!region) return null;
+    const { pageIndex, topFrac, botFrac } = region;
 
-    const ls = entries[best.pi].lines;
-    const topFrac = Math.max(0, ls[best.li].topFrac - 0.004);
-    let botFrac = 1; // default: to the bottom of the page
-    for (let li = best.li + 1; li < ls.length; li++) {
-      if (MARK.test(ls[li].text.trim())) { botFrac = Math.max(topFrac + 0.012, ls[li].topFrac - 0.004); break; }
-    }
-
-    const canvas = await entries[best.pi].render(CROP_SCALE);
+    const canvas = await entries[pageIndex].render(CROP_SCALE);
     const W = canvas.width, H = canvas.height;
     const y0 = Math.max(0, Math.floor(topFrac * H));
     const y1 = Math.min(H, Math.ceil(botFrac * H));
