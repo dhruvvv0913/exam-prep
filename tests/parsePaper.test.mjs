@@ -168,3 +168,33 @@ c) What is a deadlock?`;
   assert.ok(ids.includes("q1a") && ids.includes("q1b") && ids.includes("q1c"), ids.join(","));
   assert.ok(!ids.includes("q2a"), `options line spawned a part: ${ids}`);
 });
+
+test("instruction stem with a real question after the terminator is kept, not dropped", () => {
+  const paper = `MID SEMESTER EXAMINATION 2025
+Operating Systems
+1. Answer all the questions.
+a) Define a process.
+b) What is a thread?
+c) Define a semaphore.
+2. Answer the following questions: (i) Explain the five-state process model with a diagram.
+3. Differentiate paging and segmentation in detail.`;
+  const qs = splitQuestions(paper);
+  const q2 = qs.find((q) => q.num === "2");
+  assert.ok(q2, "Q2 (instruction + real question) was dropped");
+  assert.ok(/five-state process model/i.test(q2.text), `Q2 text wrong: ${q2 && q2.text}`);
+  assert.ok(!/^answer the following/i.test(q2.text), "instruction prefix not stripped");
+});
+
+test("a bare 'Answer the following questions' stem (no real content) is still dropped", () => {
+  const qs = splitQuestions("1. Define cache memory in detail.\n2. Answer the following questions\n3. Explain virtual memory clearly.");
+  assert.ok(!qs.some((q) => /^answer the following/i.test(q.text)), qs.map((q) => q.text).join(" | "));
+});
+
+test("OCR-mangled and bare marks tokens are stripped from question text", () => {
+  // "=" OCR'd as ":" inside a split bracket
+  const a = splitQuestions("1. Define cache memory clearly here for us. [3 + 2 : 5 Marks]\n2. Explain the TLB in good detail now.");
+  assert.ok(!/marks?/i.test(a[0].text), `bracketed marks leaked: ${a[0].text}`);
+  // unbracketed "5 Marks"
+  const b = splitQuestions("1. Explain virtual memory in good detail here. 5 Marks\n2. Define paging clearly for us now.");
+  assert.ok(!/5\s*marks/i.test(b[0].text), `bare marks leaked: ${b[0].text}`);
+});
