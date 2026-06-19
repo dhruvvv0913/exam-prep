@@ -6,8 +6,8 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { readFileSync } from "node:fs";
 import { createCanvas } from "@napi-rs/canvas";
 import { createWorker } from "tesseract.js";
-import { parsePaper } from "../src/engine/parsePaper.js";
-import { isUsableText } from "../src/engine/textQuality.js";
+import { parsePaper, splitQuestions } from "../src/engine/parsePaper.js";
+import { assessText } from "../src/engine/textQuality.js";
 
 async function textLayer(doc) {
   let out = "";
@@ -49,8 +49,17 @@ async function ocr(doc) {
 let grand = 0, grandQ = 0;
 for (const path of process.argv.slice(2)) {
   const doc = await getDocument({ data: new Uint8Array(readFileSync(path)), useSystemFonts: true }).promise;
+  // Mirror src/engine/extractText.js: trust the text layer only if it's clearly
+  // clean AND yields a sensible number of questions; otherwise OCR and keep
+  // whichever recovers more questions (then better word quality).
   let text = await textLayer(doc); let method = "text";
-  if (!isUsableText(text)) { text = await ocr(doc); method = "ocr"; }
+  const tlA = assessText(text); const tlQ = splitQuestions(text).length;
+  if (!(tlA.usable && tlA.ratio >= 0.15 && tlQ >= 5)) {
+    const ocrText = await ocr(doc);
+    const ocrQ = splitQuestions(ocrText).length;
+    const ocrRatio = assessText(ocrText).ratio;
+    if (ocrQ > tlQ || (ocrQ === tlQ && ocrRatio >= tlA.ratio)) { text = ocrText; method = "ocr"; }
+  }
   const { meta, questions } = parsePaper(text);
   const total = questions.reduce((s, q) => s + (q.marks || 0), 0);
   grand += total; grandQ += questions.length;

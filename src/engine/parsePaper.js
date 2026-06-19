@@ -208,6 +208,13 @@ export function splitQuestions(text) {
   let cur = null;
   let curNum = null;
   let lastPart = null; // last part letter seen under curNum
+  let lastTopNum = 0;  // highest top-level number seen, for inferring a garbled one
+  // A question STEM whose number OCR mangled — "74 Answer all the questions…",
+  // "Ql. Answer the following…" — where Q_NUM can't see a clean number. We catch
+  // it by the leading number-ish token ("74", "Ql", "l)") + the "Answer all / the
+  // following" stem phrase (NOT the rubric "Answer ANY four…", which has no
+  // leading number) so the compulsory Q1 and its a)/b)/c) parts aren't lost.
+  const GARBLED_STEM = /^\W*[\dQqIl]{1,3}[.)]?\s+answer\s+(all|the\s+following)\b/i;
   // Strip a leading exam instruction ("Answer all the questions.", "Answer any
   // two of the following:") and KEEP whatever real question follows. Some papers
   // write "2. Answer the following questions: (i) <actual question>" — dropping
@@ -250,9 +257,20 @@ export function splitQuestions(text) {
     if (m) {
       flush();
       curNum = m[1];
+      lastTopNum = Number(curNum) || lastTopNum;
       const part = m[2] ? m[2].toLowerCase() : null;
       lastPart = part;
       cur = { num: curNum, part, text: m[3] || "" };
+      continue;
+    }
+    // Garbled-number question stem (OCR): start a new question with an inferred
+    // number so its parts attach; the stem text itself drops on flush.
+    if (GARBLED_STEM.test(l)) {
+      flush();
+      lastTopNum += 1;
+      curNum = String(lastTopNum);
+      lastPart = null;
+      cur = { num: curNum, part: null, text: l.replace(/^\W*[\dQqIl]{1,3}[.)]?\s+/i, "") };
       continue;
     }
     m = Q_PART.exec(l);
