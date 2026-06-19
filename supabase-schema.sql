@@ -1,8 +1,10 @@
 -- PYQ-LY · Supabase schema for the library features.
 -- Run once in the Supabase SQL editor (Dashboard → SQL).
 --
--- Already created earlier (NOT repeated here): the is_admin() function and the
--- tables `subjects`, `subject_content`, `entitlements` (curated/paid library).
+-- The is_admin() function and the curated/paid library core tables
+-- (`subjects`, `subject_content`, `entitlements`) + their paywall RLS now live
+-- in supabase-library-core.sql (canonical, idempotent). is_admin() itself was
+-- created in an early session and is referenced (not redefined) by both files.
 --
 -- The two tables below power "My Library" (personal saved analyses) and the
 -- community contribution + pooling flow. They reuse the existing is_admin().
