@@ -64,7 +64,7 @@ function PublishModal({ defaults, content, onClose }) {
   return (
     <React.Fragment>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
-      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Publish to library" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24, outline: "none" }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Publish to library" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", maxHeight: "88vh", overflowY: "auto", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24, outline: "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 18, color: C.ink }}>Publish to library</div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
@@ -119,7 +119,7 @@ function ContributeModal({ defaults, content, onClose }) {
   return (
     <React.Fragment>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
-      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Contribute to the library" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24, outline: "none" }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Contribute to the library" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", maxHeight: "88vh", overflowY: "auto", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24, outline: "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 18, color: C.ink }}>Contribute to the library</div>
           <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
