@@ -40,10 +40,14 @@ const NOISE = [
 ];
 
 // A line that is ONLY a marks token, e.g. "[5]", "[S]", "(5]", "[1 x 10]".
-const MARKS_ONLY = /^[[(]\s*[\dSsIl][\dSsIl\s×xX+=.,Mark]*[\])]$/;
+// (":" because OCR often reads "=" as ":"; "l" because "Marks"→"Marls".)
+const MARKS_ONLY = /^[[(]\s*[\dSsIl][\dSsIl\s×xX+=.,:Markl]*[\])]$/;
 
-// Marks tokens to strip from inside a question line.
-const MARKS_INLINE = /[[(]\s*[\dSsIl][\dSsIl\s×xX+=.,]*\s*(?:Marks?)?\s*[\])]/g;
+// Marks tokens to strip from inside a question line — bracketed (possibly
+// OCR-mangled, "=" as ":" / "Marks" as "Marls") OR a bare "5 Marks" / "3+2=5
+// Marks" run that lost its brackets in a bad text layer.
+const MARKS_INLINE = /[[(]\s*[\dSsIl][\dSsIl\s×xX+=.,:]*\s*(?:Mar[kl]s?)?\s*[\])]/g;
+const MARKS_BARE = /\b\d{1,2}(?:\s*[-+xX×=:.]\s*\d{1,2})*\s*mar[kl]s?\b/gi;
 
 const isNoise = (l) => NOISE.some((re) => re.test(l)) || MARKS_ONLY.test(l);
 
@@ -121,6 +125,7 @@ const cleanText = (s) =>
     .replace(/Page\s*\d+\s*\/\s*\d+/gi, " ") // "Page 5 / 7" footers
     .replace(/K[\w-]{0,4}D[uU][\s\S]*$/g, " ") // "KIIT-DU/2025/..." exam footer to end
     .replace(MARKS_INLINE, " ")
+    .replace(MARKS_BARE, " ") // unbracketed "5 Marks" / "13 + 2 = 5 Marls"
     .replace(/\[\s*\d{1,3}\s*[\])]?/g, " ") // bracketed mark artifacts: "[5]" "[51" "[10"
     .replace(/\b\d{1,2}\s*[\])]/g, " ") // orphan marks: "15]" "5)" "5]"
     .replace(/[|*]{2,}|\*?k[ok]{2,}/gi, " ") // OCR'd dividers: "*****" / "*kokokk" / "kkk"
@@ -203,15 +208,28 @@ export function splitQuestions(text) {
   let cur = null;
   let curNum = null;
   let lastPart = null; // last part letter seen under curNum
-  // "Answer all the questions" / "Answer any two of the following" are exam
-  // instructions that ride in as a question stem (e.g. "1. Answer the following
-  // questions") — not real content.
-  const isInstruction = (t) => /^answer\s+(all|any|the\s+following)\b/i.test(t);
+  // Strip a leading exam instruction ("Answer all the questions.", "Answer any
+  // two of the following:") and KEEP whatever real question follows. Some papers
+  // write "2. Answer the following questions: (i) <actual question>" — dropping
+  // the whole unit (as we used to) lost the real question with the instruction.
+  // A leftover lone part marker ("(i):") from such a stem is trimmed too. A pure
+  // instruction strips to nothing and is dropped by the length check below.
+  const stripInstruction = (t) => {
+    if (!/^answer\s+(all|any|the\s+following)\b/i.test(t)) return t;
+    const term = /[.:?]/.exec(t);
+    // No "." / ":" terminator => a bare instruction line with no real question
+    // riding along => drop it. Otherwise keep what follows the first terminator,
+    // minus a leftover lone part/marks marker ("(i):", "[5]") the stem left behind.
+    if (!term) return "";
+    return t.slice(term.index + 1)
+      .replace(/^\s*[a-z0-9]?\s*(\(?[a-z]{1,3}\)|\[[^\]]*\])\s*:?\s*/i, "") // leftover "(i):" / "l (i):" / "[5]"
+      .trim();
+  };
   const flush = () => {
     if (cur) {
       const raw = cur.text;
-      const text = cleanText(raw);
-      if (text.length > 8 && !isInstruction(text) && !isHeader(text)) {
+      const text = stripInstruction(cleanText(raw));
+      if (text.length > 8 && !isHeader(text)) {
         cur.text = text;
         cur.rawMarks = parseMarks(raw); // explicit marks token, if the paper has one
         let id = `q${cur.num}${cur.part || ""}`;
