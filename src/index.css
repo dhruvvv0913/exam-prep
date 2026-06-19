@@ -28,6 +28,14 @@ button:focus:not(:focus-visible), [role="button"]:focus:not(:focus-visible) { ou
 /* gentle entrance for cards */
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
+/* feature-tour (loading-screen tutorial) animations */
+@keyframes growx { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.14); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes tourin { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes fadeout { from { opacity: 1; } to { opacity: 0; } }
+@keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes shimmer { 0% { transform: translateX(-130%); } 100% { transform: translateX(360%); } }
+
 /* buttons get a smooth feel by default */
 button { transition: transform .14s ease, box-shadow .2s ease, background .2s ease, filter .2s ease, border-color .2s ease; }
 
