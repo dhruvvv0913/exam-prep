@@ -763,6 +763,12 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
           </div>
         )}
 
+        {sources && (
+          <Tip id="view-original" title="See the original question">
+            Scanned papers can read back garbled, and diagrams can't be shown as text — so tap <strong>View original</strong> under any question (expand a card) to see the exact image cropped from your uploaded paper.
+          </Tip>
+        )}
+
         {hasPpt && (
           <Tip id="analysis-views" title="Two ways to study these">
             Switch between <strong>By importance</strong> (every question type, ranked by what repeats) and <strong>By PPT</strong> (each slide deck with the question types asked from it). Tap a card's PPT or rank chip to jump between the two.
