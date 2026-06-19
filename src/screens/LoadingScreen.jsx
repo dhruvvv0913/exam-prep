@@ -4,7 +4,7 @@
 import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconCheck, IconStar, IconSparkle, IconLayers } from "../components/icons.jsx";
-import { FloatField, PrimaryButton } from "../components/atoms.jsx";
+import { FloatField } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { analyze } from "../engine/pipeline.js";
 
@@ -202,7 +202,6 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
 
   const [active, setActive] = React.useState(0);
   const [notes, setNotes] = React.useState(() => stepDefs.map(() => ""));
-  const [error, setError] = React.useState(null);
   const isMobile = useIsMobile();
 
   React.useEffect(() => {
@@ -234,7 +233,9 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
       .catch((err) => {
         if (cancelled) return;
         console.error(err);
-        setError(err?.message || "Something went wrong while analysing your papers.");
+        // Roll straight back to the upload screen with the reason, rather than
+        // sitting on a dead loading screen or showing a partial result.
+        onError(err?.message || "Something went wrong while analysing your papers.");
       });
 
     return () => { cancelled = true; };
@@ -253,13 +254,7 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
           Finding the questions that actually repeat. Scanned PDFs take a little longer.
         </div>
 
-        {error ? (
-          <div style={{ marginTop: 28, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-            <div style={{ fontFamily: C.font, fontSize: 14.5, color: "#c0392b", textAlign: "center", lineHeight: 1.5 }}>{error}</div>
-            <PrimaryButton onClick={onError}>Back to upload</PrimaryButton>
-          </div>
-        ) : (
-          <React.Fragment>
+        <React.Fragment>
             {/* overall progress */}
             <div style={{ width: "100%", height: 8, borderRadius: 999, background: "#e3e5f1", overflow: "hidden", marginTop: 22, position: "relative" }}>
               <div style={{ height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${C.primary}, #5b6cdb)`, width: `${pct}%`, transition: "width .6s cubic-bezier(.4,0,.2,1)" }} />
@@ -282,8 +277,7 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
                   </div>);
               })}
             </div>
-          </React.Fragment>
-        )}
+        </React.Fragment>
       </div>
     </div>);
 }

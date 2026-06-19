@@ -117,6 +117,7 @@ export default function App() {
   const [starred, setStarred] = React.useState(() => new Set(readProgress(saved.progressKey || "upload").starred));
   const [notice, setNotice] = React.useState(null); // transient error/info toast
   React.useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(null), 4500); return () => clearTimeout(t); }, [notice]);
+  const [scanError, setScanError] = React.useState(null); // a paper couldn't be scanned -> shown on the landing screen
 
   // Persist the result + screen + which progress bucket is active.
   React.useEffect(() => {
@@ -134,10 +135,14 @@ export default function App() {
   // saved/curated subject rather than a fresh upload.
   const fromUpload = progressKey === "upload";
   const fromLibrary = !fromUpload;
-  const home = () => setScreen("landing");
+  const home = () => { setScanError(null); setScreen("landing"); };
   const browse = () => setScreen("library");
-  const reupload = () => { setPapers([]); setHandouts([]); setScreen("landing"); };
-  const start = () => setScreen("loading");
+  const reupload = () => { setPapers([]); setHandouts([]); setScanError(null); setScreen("landing"); };
+  const start = () => { setScanError(null); setScreen("loading"); };
+  // Analysis failed (e.g. a paper couldn't be scanned): roll back to the upload
+  // screen with the reason, KEEPING the uploaded files so the user can swap out
+  // or remove the offending paper instead of re-adding everything.
+  const onScanError = (msg) => { setScanError(msg || "We couldn't analyse those papers — please try again."); setScreen("landing"); };
 
   // A fresh upload analysis: own progress bucket, reset.
   const onDone = (r) => {
@@ -188,10 +193,10 @@ export default function App() {
       <TopBar screen={screen} summary={result} fromLibrary={fromLibrary} auth={auth} onHome={home} onReupload={reupload} onBrowse={browse} onAdmin={openAdmin} />
       <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <React.Suspense fallback={<ScreenFallback />}>
-          {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />}
+          {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} scanError={scanError} onClearError={() => setScanError(null)} />}
           {screen === "library" && <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />}
           {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />)}
-          {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} onDone={onDone} onError={reupload} />}
+          {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} onDone={onDone} onError={onScanError} />}
           {screen === "analysis" && (result
             ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && fromUpload} canSaveMine={!!auth.user && fromUpload} fromLibrary={fromLibrary}
                 sources={fromUpload ? { papers, slides: handouts } : (result?.files || null)}

@@ -80,6 +80,16 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     );
   }
 
+  // Don't return a PARTIAL result: if ANY uploaded paper couldn't be scanned
+  // (unreadable, or no questions could be read from it), stop and send the user
+  // back to re-upload a clearer copy rather than silently dropping it. Better an
+  // honest "couldn't read X" than a result that's quietly missing a paper.
+  if (skipped.length > 0) {
+    const names = skipped.map((s) => s.name).join(", ");
+    const one = skipped.length === 1;
+    throw new Error(`Couldn't scan ${one ? "this paper" : "these papers"}: ${names}. The scan looks too blurry or low-contrast to read reliably — try a clearer scan or photo${one ? "" : " (or remove it)"}, then upload again.`);
+  }
+
   // Optional: read course slides and extract a deck-level topic taxonomy to
   // group against. Each slide deck (PDF) becomes one coarse topic, labelled from
   // its filename; per-slide titles are the precise match targets. extractText
