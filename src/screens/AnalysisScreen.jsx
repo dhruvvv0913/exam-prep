@@ -538,7 +538,7 @@ function RefinePreview({ oldGroups, newGroups, onApply, onClose, busy }) {
 }
 
 // ---- screen ------------------------------------------------------------
-export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveMine, fromLibrary, sources, done, starred, onToggleDone, onToggleStar }) {
+export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveMine, fromLibrary, sources, onNotify, done, starred, onToggleDone, onToggleStar }) {
   const paperCount = data.paperCount;
   const [editing, setEditing] = React.useState(false);
   // collapsed by id; default = the "asked once" groups start collapsed.
@@ -695,7 +695,13 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
       const improved = await refineViaApi(data.groups, chapters);
       setRefinePreview(improved);
       setRefineState("idle");
-    } catch (e) { console.error("improve failed", e); setRefineState("error"); }
+    } catch (e) {
+      console.error("improve failed", e);
+      setRefineState("error");
+      onNotify?.(/\b429\b|limit/i.test(e.message || "")
+        ? "Daily AI limit reached — try “Improve result” again tomorrow."
+        : "Couldn’t reach the AI just now — tap “Retry improve” to try again.");
+    }
   };
 
   return (

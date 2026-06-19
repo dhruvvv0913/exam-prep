@@ -111,11 +111,13 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
   // Preferred path (signed-in): LLM grouping via the backend. On any failure
   // (offline, quota, not signed in) fall back to the local embedding grouping.
   let clusters = null;
+  let aiError = null; // set when AI grouping was attempted but failed (we then fell back)
   if (aiGroup) {
     try {
       clusters = await aiGroup(items, chapters);
     } catch (e) {
-      onProgress?.({ stage: "ai-fallback", error: e.message });
+      aiError = e.message || "ai-failed";
+      onProgress?.({ stage: "ai-fallback", error: aiError });
       clusters = null;
     }
   }
@@ -141,5 +143,6 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     topicCount,
     skipped, // [{ name, reason }] — papers that were unreadable or had no questions
     warnings, // [{ name, reason }] — analysed but flagged (e.g. "solution-sheet")
+    aiError, // null, or the reason AI grouping fell back to basic grouping (e.g. "group api 429")
   };
 }
