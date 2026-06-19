@@ -198,3 +198,29 @@ test("OCR-mangled and bare marks tokens are stripped from question text", () => 
   const b = splitQuestions("1. Explain virtual memory in good detail here. 5 Marks\n2. Define paging clearly for us now.");
   assert.ok(!/5\s*marks/i.test(b[0].text), `bare marks leaked: ${b[0].text}`);
 });
+
+test("garbled OCR Q1 number ('74 Answer all the questions') still yields Q1's parts", () => {
+  const paper = `MID SEMESTER EXAMINATION 2024
+Computer Organization and Architecture
+74 Answer all the questions. [1 Mark X 5]
+a) What is Von Neumann architecture and how does it differ from Harvard?
+b) Convert the decimal number 45 to its binary representation.
+c) Define pipelining in a processor clearly.
+2. Explain the memory hierarchy in detail with a diagram.`;
+  const ids = splitQuestions(paper).map((q) => q.id);
+  assert.ok(ids.includes("q1a") && ids.includes("q1b") && ids.includes("q1c"), `Q1 parts lost: ${ids}`);
+  for (const q of splitQuestions(paper).filter((q) => q.num === "1")) assert.equal(q.marks, 1, `Q1 part should be 1 mark: ${q.id}`);
+  assert.ok(ids.includes("q2"), `Q2 lost: ${ids}`);
+});
+
+test("the general rubric 'Answer any four…' is NOT treated as a question stem", () => {
+  const paper = `MID SEMESTER EXAMINATION 2024
+Subject: COA
+Answer any four questions including question No.1 which is compulsory.
+The figures in the margin indicate full marks.
+1. Define cache memory and its purpose clearly.
+2. Explain virtual memory translation in detail.`;
+  const qs = splitQuestions(paper);
+  assert.ok(!qs.some((q) => /including question|figures in the margin|compulsory/i.test(q.text)), qs.map((q) => q.text).join(" | "));
+  assert.ok(qs.some((q) => /cache memory/i.test(q.text)) && qs.some((q) => /virtual memory/i.test(q.text)));
+});
