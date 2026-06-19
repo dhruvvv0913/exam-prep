@@ -333,10 +333,31 @@ function openSourceItem(item) {
 // contained HTML, so it needs no print stylesheet on the app itself.
 function exportStudySheet({ groups, subject, paperCount }) {
   const { ranked, unique } = summarize(groups || []);
+  const decks = byPpt(groups || []); // By-PPT outline (empty when no slides)
   const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   const sec = (g, n) => `<section><h2>${n ? esc(n + ". ") : ""}${esc(g.topic)}</h2>`
     + `<div class="meta">${g.unique ? "asked once" : `appears in ${g.appears} exams · ${g.variants} questions`} · ${g.totalMarks} marks</div>`
     + `<ul>${g.questions.map((q) => `<li><span class="src">${esc(q.src || q.paperId || q.year || "?")}</span> ${esc(q.text)} <span class="m">[${q.marks}]</span></li>`).join("")}</ul></section>`;
+
+  // Compact "By PPT" chapter outline — just the type labels per deck (the full
+  // questions already appear ranked above, so we don't reprint them).
+  const pptHtml = decks.length
+    ? `<h1 style="margin-top:30px;font-size:15px;color:#8a8fa3">By PPT — chapter coverage</h1>`
+      + decks.map((d) => `<section><h2>${esc(d.deck)}</h2>`
+          + `<div class="meta">${d.typeCount} ${d.typeCount === 1 ? "type" : "types"} · ${d.questionCount} questions · ${d.totalMarks} marks</div>`
+          + `<ul>${d.types.map((t) => `<li>${esc(t.topic)} <span class="m">${t.unique ? "asked once" : `appears ${t.appears}×`} · ${t.totalMarks} marks</span></li>`).join("")}</ul></section>`).join("")
+    : "";
+
+  // 1-mark questions appendix, grouped by paper (newest first).
+  const ones = (groups || []).flatMap((g) => g.items || []).filter((it) => it.marks === 1);
+  const byPaper = new Map();
+  for (const it of ones) { const k = it.paperId || (it.year != null ? String(it.year) : "Paper"); (byPaper.get(k) || byPaper.set(k, { year: it.year ?? -1, qs: [] }).get(k)).qs.push(it); }
+  const oneHtml = ones.length
+    ? `<h1 style="margin-top:30px;font-size:15px;color:#8a8fa3">1-mark questions</h1>`
+      + [...byPaper.entries()].sort((a, b) => (b[1].year ?? -1) - (a[1].year ?? -1)).map(([k, v]) =>
+          `<section><h2>${esc(k)}</h2><ul>${v.qs.slice().sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true })).map((q) => `<li>${esc(q.text)}</li>`).join("")}</ul></section>`).join("")
+    : "";
+
   const title = subject || "Important questions";
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} — study sheet</title>`
     + `<style>body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,sans-serif;max-width:820px;margin:0 auto;padding:24px 18px 60px;color:#1a1c2e}`
@@ -350,6 +371,8 @@ function exportStudySheet({ groups, subject, paperCount }) {
     + `<h1>${esc(title)}</h1><div class="meta">${paperCount || 0} papers · ranked by what repeats</div>`
     + ranked.map((g, i) => sec(g, i + 1)).join("")
     + (unique.length ? `<h1 style="margin-top:26px;font-size:15px;color:#8a8fa3">Asked once</h1>` + unique.map((g) => sec(g, 0)).join("") : "")
+    + pptHtml
+    + oneHtml
     + `</body></html>`;
   const w = window.open("", "_blank");
   if (w) { w.document.write(html); w.document.close(); }
