@@ -30,9 +30,15 @@ async function ocr(doc) {
   let out = "";
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
-    const vp = page.getViewport({ scale: 2 });
+    // Match the browser's resolution-aware OCR scale (ocr.js): ~300 DPI, capped
+    // 2–4×. Rendering scans too small (e.g. a flat scale 2) loses whole papers.
+    const baseW = page.getViewport({ scale: 1 }).width || 595;
+    const s = Math.min(4, Math.max(2, 2200 / baseW));
+    const vp = page.getViewport({ scale: s });
     const canvas = createCanvas(vp.width, vp.height);
-    await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, vp.width, vp.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
     const { data } = await worker.recognize(canvas.toBuffer("image/png"));
     out += data.text + "\n";
   }
