@@ -177,7 +177,7 @@ function FeatureTour() {
     </div>);
 }
 
-export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError }) {
+export default function LoadingScreen({ papers, slides, aiGroup, aiScan, onDone, onError }) {
   const hasSlides = !!(slides && slides.length);
   // With slides we group AGAINST their topics, so the steps differ.
   const stepDefs = hasSlides
@@ -211,10 +211,12 @@ export default function LoadingScreen({ papers, slides, aiGroup, onDone, onError
     analyze(papers, {
       slideFiles: hasSlides ? slides : undefined,
       aiGroup,
+      aiScan,
       onProgress: (p) => {
         if (cancelled) return;
         const step = STAGE_STEP[p.stage] ?? 0;
         if (p.stage === "ai-fallback") { setNote(GROUP_STEP, "AI busy — using built-in grouping"); return; }
+        if (p.stage === "ai-scan") { setActive(0); setNote(0, "hard to read — using AI scan…"); return; }
         if (p.stage === "paper-skipped") { setNote(0, `skipped ${p.paper} — unreadable`); return; }
         setActive(step);
         if (p.stage === "reading") setNote(0, `${p.index + 1} of ${p.total}`);

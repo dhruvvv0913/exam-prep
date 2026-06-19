@@ -30,6 +30,29 @@ export async function ocrImage(image) {
   }
 }
 
+// Render a pdfjs document's pages to base64 JPEGs (no data: prefix) for the AI
+// vision scan. Lighter scale than OCR (vision models don't need 300 DPI) and
+// capped pages to bound the upload payload / cost. White background like OCR.
+export async function renderPageImages(doc, { maxPages = 12, scale } = {}) {
+  const out = [];
+  const n = Math.min(doc.numPages, maxPages);
+  for (let p = 1; p <= n; p++) {
+    const page = await doc.getPage(p);
+    const baseW = page.getViewport({ scale: 1 }).width || 595;
+    const s = scale ?? Math.min(3, Math.max(1.5, 1700 / baseW));
+    const viewport = page.getViewport({ scale: s });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    out.push(canvas.toDataURL("image/jpeg", 0.82).split(",")[1]);
+  }
+  return out;
+}
+
 // OCR a canvas and return its text LINES with pixel bounding boxes (top/bottom
 // in the canvas's own pixels). `blocks: true` asks Tesseract for the layout
 // boxes. Used by cropQuestion.js to find per-question crop boundaries on scanned

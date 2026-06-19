@@ -16,6 +16,7 @@ const LibraryScreen = React.lazy(() => import("./LibraryScreen.jsx"));
 const AdminScreen = React.lazy(() => import("./AdminScreen.jsx"));
 import { getSubjectContent, getMySubject, logUsage } from "../engine/libraryDb.js";
 import { groupViaApi } from "../engine/aiGroup.js";
+import { scanViaApi } from "../engine/aiScan.js";
 import { useAuth } from "../auth.jsx";
 
 // Minimal centered spinner shown while a lazy screen's chunk loads.
@@ -196,7 +197,7 @@ export default function App() {
           {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} scanError={scanError} onClearError={() => setScanError(null)} />}
           {screen === "library" && <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />}
           {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />)}
-          {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} onDone={onDone} onError={onScanError} />}
+          {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} aiScan={auth.user && useAi ? scanViaApi : undefined} onDone={onDone} onError={onScanError} />}
           {screen === "analysis" && (result
             ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && fromUpload} canSaveMine={!!auth.user && fromUpload} fromLibrary={fromLibrary}
                 sources={fromUpload ? { papers, slides: handouts } : (result?.files || null)}

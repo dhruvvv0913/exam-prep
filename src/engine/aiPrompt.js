@@ -77,6 +77,23 @@ Respond with ONLY the corrected FULL grouping as JSON, no prose, in exactly this
 {"groups":[{"chapter":${has ? `"<a chapter from the list above, or 'Not on slides'>"` : "null"},"topic":"<short type label>","ids":[<question numbers>]}]}`;
 }
 
+// "AI scan": a VISION transcription pass for papers our local OCR couldn't read
+// cleanly. The model is sent the page IMAGES and must transcribe the QUESTIONS
+// faithfully (clean text we then split with parsePaper). Used only when local
+// extraction is poor, for signed-in users. Shared by the proxy (api/scan.js).
+export function buildScanPrompt() {
+  return `You are transcribing a scanned or photographed university exam question paper that automatic OCR could not read cleanly. Reproduce its QUESTIONS as clean plain text, faithfully — this will be parsed by a program, so structure matters.
+
+Rules:
+- Output EVERY question and sub-part. Preserve the numbering EXACTLY as printed: top-level "1." "2." …, parts "(a)" "(b)" … (or "a)" "b)" if that is how it is printed), roman sub-parts "(i)" "(ii)".
+- Put each question / part on its OWN line, starting with its marker. Keep the marks token if it is shown next to a question (e.g. "[5]", "[1 x 10]", "[3+2]").
+- Write any mathematics, formulae, registers, binary/hex, tables inline in plain text. For a diagram / figure / circuit / graph that cannot be written as text, put "[diagram]" where it appears — do NOT invent its contents.
+- Transcribe ONLY the question-paper text. SKIP the institute header, exam rubric/instructions ("Answer any four…", "figures in the margin…"), candidate/branch/code lines, page numbers, footers, and ANY printed answers or marking scheme.
+- Do NOT solve, summarise, translate, or rephrase. Transcribe what is printed (silently fixing obvious OCR-level letter garble within words).
+
+Return ONLY the transcribed question text — no preamble, no commentary, no markdown fences.`;
+}
+
 // Normalise the model's chapter string to a deck label. Off-syllabus / missing
 // chapters collapse to NOT_ON_SLIDES; when no slides were provided, deck is null
 // (so only the "By importance" view shows).

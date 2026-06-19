@@ -6,7 +6,7 @@ import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { assessText } from "./textQuality.js";
 import { splitQuestions } from "./parsePaper.js";
-import { ocrDocument } from "./ocr.js";
+import { ocrDocument, renderPageImages } from "./ocr.js";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -58,7 +58,7 @@ async function readTextLayer(doc) {
 const CLEAN_RATIO = 0.15;   // low end of clean born-digital prose (0.15–0.35)
 const MIN_QUESTIONS = 5;    // a real paper parses to at least a handful of units
 
-export async function extractText(data, { onOcrProgress } = {}) {
+export async function extractText(data, { onOcrProgress, aiScan, onAiScan } = {}) {
   const doc = await pdfjs.getDocument({ data, useSystemFonts: true }).promise;
   const text = await readTextLayer(doc);
   const tlA = assessText(text);
@@ -70,5 +70,18 @@ export async function extractText(data, { onOcrProgress } = {}) {
   const ocrQ = splitQuestions(ocrText).length;
   const ocrRatio = assessText(ocrText).ratio;
   const ocrWins = ocrQ > tlQ || (ocrQ === tlQ && ocrRatio >= tlA.ratio);
-  return ocrWins ? { text: ocrText, method: "ocr" } : { text, method: "text" };
+  const best = ocrWins ? { text: ocrText, method: "ocr", q: ocrQ } : { text, method: "text", q: tlQ };
+
+  // Last resort: if even the best local read is under-parsed (a bad scan) and an
+  // AI vision scan is available (signed-in), transcribe the page IMAGES with the
+  // model and keep it if it recovers more questions. Falls back silently on any
+  // failure / quota, so it never blocks the local result.
+  if (aiScan && best.q < MIN_QUESTIONS) {
+    try {
+      onAiScan?.();
+      const aiText = await aiScan(await renderPageImages(doc));
+      if (splitQuestions(aiText).length > best.q) return { text: aiText, method: "ai" };
+    } catch (e) { console.error("AI scan failed; using local extraction", e); }
+  }
+  return { text: best.text, method: best.method };
 }

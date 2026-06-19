@@ -12,12 +12,14 @@ import { parsePaper } from "./parsePaper.js";
 import { extractDeckTopics, deckLabel } from "./slides.js";
 import { groupsFromClusters } from "./rank.js";
 
-async function readPage(file, onProgress) {
+async function readPage(file, onProgress, aiScan) {
   const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
   if (isPdf) {
     const buf = new Uint8Array(await file.arrayBuffer());
     const { text, method } = await extractText(buf, {
       onOcrProgress: (done, total) => onProgress?.({ stage: "ocr", paper: file.name, done, total }),
+      aiScan, // signed-in last resort for papers our OCR can't read; undefined for slides
+      onAiScan: () => onProgress?.({ stage: "ai-scan", paper: file.name }),
     });
     return { text, ocr: method === "ocr" };
   }
@@ -27,7 +29,7 @@ async function readPage(file, onProgress) {
 
 // `aiGroup(items, chapters)` is an optional async grouper (the signed-in LLM
 // path); if it throws we fall back to the in-browser embedding grouping.
-export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = {}) {
+export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup, aiScan } = {}) {
   const items = [];
   const papers = [];
   const skipped = []; // papers we couldn't read or that yielded no questions
@@ -50,7 +52,7 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
     let failed = false;
     try {
       for (const file of pages) {
-        const { text: t, ocr } = await readPage(file, onProgress);
+        const { text: t, ocr } = await readPage(file, onProgress, aiScan);
         text += t + "\n";
         usedOcr = usedOcr || ocr;
       }
@@ -87,7 +89,9 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup } = 
   if (skipped.length > 0) {
     const names = skipped.map((s) => s.name).join(", ");
     const one = skipped.length === 1;
-    throw new Error(`Couldn't scan ${one ? "this paper" : "these papers"}: ${names}. The scan looks too blurry or low-contrast to read reliably — try a clearer scan or photo${one ? "" : " (or remove it)"}, then upload again.`);
+    // If the sharper AI scan wasn't available (not signed in), point them to it.
+    const aiHint = aiScan ? "" : " — or sign in to use the sharper AI scan";
+    throw new Error(`Couldn't scan ${one ? "this paper" : "these papers"}: ${names}. The scan looks too blurry or low-contrast to read reliably — try a clearer scan or photo${one ? "" : " (or remove it)"}${aiHint}, then upload again.`);
   }
 
   // Optional: read course slides and extract a deck-level topic taxonomy to
