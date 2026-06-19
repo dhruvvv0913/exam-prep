@@ -735,7 +735,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
             {subject && <div style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, letterSpacing: 0.3, textTransform: "uppercase", color: C.primary, marginBottom: 4 }}>{subject}</div>}
             <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: isMobile ? 23 : 28, color: C.ink, letterSpacing: -0.3 }}>Important questions</div>
             <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, marginTop: 5, maxWidth: 520, lineHeight: 1.5 }}>Grouped by topic and ranked by how often each repeats across {fromLibrary ? `${paperCount} ${paperCount === 1 ? "paper" : "papers"}` : `your ${paperCount} uploaded ${paperCount === 1 ? "paper" : "papers"}`}.</div>
-            <div title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 12, color: C.faint, marginTop: 6 }}>Marks are estimated from the standard exam scheme.</div>
+            <div title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 12, color: C.faint, marginTop: 6 }}>Marks are estimated (compulsory Q1 parts = 1, others = 5) and added up across <em>every</em> question listed — so the total spans all papers and all optional questions, not one exam's full marks.</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, flexWrap: "wrap" }}>
             <Tag tone="gold"><IconStar s={13} on c={C.gold} /> {starred.size} starred</Tag>

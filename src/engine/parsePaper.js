@@ -157,9 +157,17 @@ function parseMarks(raw) {
 // SOLUTION sheets then double the question count. So we detect the dominant
 // style PER PAPER (by counting digit-led markers) and use exactly one set —
 // dot-style papers never see the looser "a)" part rule.
-const MARKERS = {
-  dot:   { num: /^(\d{1,2})\.\s*(?:\(([a-z])\)\s*)?(.*)$/i, part: /^\(([a-z])\)\s*(.*)$/i },
-  paren: { num: /^(\d{1,2})\)\s*(?:([a-z])\)\s*)?(.*)$/i,   part: /^([a-z])\)\s*(.*)$/i },
+// Number style (top-level "1." vs "1)") and PART bracket style ("(a)" vs "a)")
+// are detected SEPARATELY, because real KIIT papers mix them — e.g. a "1."
+// numbered paper whose sub-parts are written "a) … b) …" (not "(a)"). Coupling
+// the two used to make such a paper lose every sub-part (and Q1 with them).
+const NUM = {
+  dot:   /^(\d{1,2})\.\s*(?:\(?([a-z])\)\s*)?(.*)$/i,
+  paren: /^(\d{1,2})\)\s*(?:\(?([a-z])\)\s*)?(.*)$/i,
+};
+const PART = {
+  paren: /^\(([a-z])\)\s*(.*)$/i, // "(a) …"
+  bare:  /^([a-z])\)\s*(.*)$/i,   // "a) …"
 };
 function detectStyle(lines) {
   let dot = 0, paren = 0;
@@ -170,13 +178,26 @@ function detectStyle(lines) {
   }
   return paren > dot ? "paren" : "dot";
 }
+// Pick the dominant part-bracket form. Defaults to "paren" (the stricter form)
+// on a tie / no parts, so dot-numbered papers using "(a)" are unaffected; only
+// flips to "bare" when "a)"-style parts clearly dominate.
+function detectPartStyle(lines) {
+  let paren = 0, bare = 0;
+  for (const l of lines) {
+    if (/^\([a-z]\)/i.test(l)) paren++;
+    else if (/^[a-z]\)/i.test(l)) bare++;
+  }
+  return bare > paren ? "bare" : "paren";
+}
 // Section headers that ride in as a stub question ("1) Short Questions") when a
 // real question's parts follow on later lines — not content.
 const isHeader = (t) => /^(short|long|very\s+short|objective|descriptive)\s+(answer\s+)?(type\s+)?questions?\b/i.test(t);
 
 export function splitQuestions(text) {
   const lines = text.split("\n");
-  const { num: Q_NUM, part: Q_PART } = MARKERS[detectStyle(lines.map((l) => l.trim()))];
+  const trimmed = lines.map((l) => l.trim());
+  const Q_NUM = NUM[detectStyle(trimmed)];
+  const Q_PART = PART[detectPartStyle(trimmed)];
   const out = [];
   const seen = new Set();
   let cur = null;
@@ -218,6 +239,10 @@ export function splitQuestions(text) {
     }
     m = Q_PART.exec(l);
     if (m && curNum) {
+      // An inline run of markers on ONE line ("a) … b) … c) … d) …") is an MCQ
+      // option list or a run-in list, NOT a new sub-part. Keep it as content, so
+      // it neither spawns a stub question nor corrupts the part/number sequence.
+      if ((l.match(/(?:^|\s)\(?[a-z]\)/gi) || []).length >= 2) { if (cur) cur.text += " " + l; continue; }
       const part = m[1].toLowerCase();
       const isRoman = part === "i" || part === "v" || part === "x";
       const sequential = lastPart && part.charCodeAt(0) === lastPart.charCodeAt(0) + 1;

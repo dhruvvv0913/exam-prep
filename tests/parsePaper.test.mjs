@@ -135,3 +135,36 @@ test("'Answer all the questions' instruction is not counted as an answer", () =>
   // No separator after the word, so markers stay 0 and it isn't flagged.
   assert.equal(assessSolutionSheet("1. Answer all the questions\n(a) What is X?\n(b) Define Y.", 2).markers, 0);
 });
+
+test("dot-numbered paper with bare a) parts: parts recovered + Q1 parts = 1 mark", () => {
+  // Mixed style: "1." numbers but "a)" parts (real KIIT pattern that used to
+  // lose every sub-part). Q1 is the compulsory multi-part (>=3 parts) => 1 mark each.
+  const paper = `MID SEMESTER EXAMINATION 2025
+Operating Systems
+1. Answer all the questions.
+a) Define a process control block.
+b) What is a context switch?
+c) State two CPU scheduling criteria.
+2. Explain the Resource Allocation Graph with an example.
+3. Describe Peterson's solution to the critical section problem.`;
+  const qs = splitQuestions(paper);
+  const ids = qs.map((q) => q.id);
+  assert.ok(ids.includes("q1a") && ids.includes("q1b") && ids.includes("q1c"), `parts lost: ${ids}`);
+  for (const q of qs.filter((q) => q.num === "1")) assert.equal(q.marks, 1, `Q1 part should be 1 mark: ${q.id}`);
+  assert.ok(ids.includes("q2") && ids.includes("q3"), `top-level questions lost: ${ids}`);
+});
+
+test("an inline MCQ options line (a) … b) … c)) is content, not new parts", () => {
+  const paper = `MID SEMESTER EXAMINATION 2025
+Operating Systems
+1. Answer all the questions.
+a) How many times will P0 print?
+a) twice b) thrice c) once d) never
+b) Define a semaphore.
+c) What is a deadlock?`;
+  const qs = splitQuestions(paper);
+  const ids = qs.map((q) => q.id);
+  // the options line must NOT create a stub or bump the numbering into q2
+  assert.ok(ids.includes("q1a") && ids.includes("q1b") && ids.includes("q1c"), ids.join(","));
+  assert.ok(!ids.includes("q2a"), `options line spawned a part: ${ids}`);
+});
