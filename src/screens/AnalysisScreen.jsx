@@ -170,10 +170,31 @@ function LinkChip({ children, title, onClick, tone = "muted" }) {
     </button>);
 }
 
+// Lazy "View original" crop: on first open, renders the question's image from
+// the uploaded source file (a note while it loads), then caches it. The crop
+// module is dynamically imported, so pdf.js/Tesseract load only on demand.
+function QuestionImage({ crop }) {
+  const [s, setS] = React.useState({ loading: true });
+  React.useEffect(() => {
+    let alive = true;
+    Promise.resolve().then(crop)
+      .then((url) => { if (alive) setS({ url }); })
+      .catch((e) => { console.error("crop failed", e); if (alive) setS({ error: true }); });
+    return () => { alive = false; };
+  }, []); // mount-once: the closure captures this question's crop
+  const note = { marginTop: 2, fontFamily: C.font, fontSize: 12.5, color: C.faint };
+  if (s.loading) return <div style={note}>Rendering the original…</div>;
+  if (s.error || !s.url) return <div style={note}>Couldn’t locate this question in the source file.</div>;
+  return <img src={s.url} alt="Original question, cropped from the source paper"
+    style={{ marginTop: 2, maxWidth: "100%", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", display: "block" }} />;
+}
+
 // ---- one group card: topic header + collapsible question list -----------
-function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, flash, headerChip, onOpenSource }) {
+function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onStar, onDone, flash, headerChip, onOpenSource, onCrop }) {
   const unique = cluster.unique;
   const isMobile = useIsMobile();
+  const [shownImg, setShownImg] = React.useState(() => new Set());
+  const toggleImg = (i) => setShownImg((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
   const delay = Math.min((rank || 0) * 0.035, 0.45);
   const lit = flash === `topic-${cluster.id}`;
   return (
@@ -221,12 +242,22 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
       {!collapsed && (
         <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
           {cluster.questions.map((q, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
-              {onOpenSource && q.pIdx != null
-                ? <LinkChip title="Open this paper in a new tab" onClick={() => onOpenSource(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"} ↗</LinkChip>
-                : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>}
-              <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
-              <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
+            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                {onOpenSource && q.pIdx != null
+                  ? <LinkChip title="Open this paper in a new tab" onClick={() => onOpenSource(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"} ↗</LinkChip>
+                  : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>}
+                <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
+                <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
+              </div>
+              {onCrop && q.pIdx != null && (
+                <div>
+                  <LinkChip title="Show the exact question (and any diagram) cropped from the source paper" onClick={() => toggleImg(i)}>
+                    <IconFile s={10} c={C.muted} /> {shownImg.has(i) ? "Hide original" : "View original"}
+                  </LinkChip>
+                  {shownImg.has(i) && <QuestionImage crop={() => onCrop(q)} />}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -597,12 +628,20 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
   // Open the source paper behind a question (its uploaded file), if we still
   // have it in memory (self-upload session). sources.papers is pIdx-aligned.
   const openSource = (pIdx) => { const p = (sources?.papers || [])[pIdx]; if (p?.pages?.[0]) openSourceItem(p.pages[0]); };
+  // "View original": crop this question's image out of its uploaded source file.
+  // Dynamic import so pdf.js/Tesseract only load when a user actually opens one.
+  const cropFor = (q) => {
+    const p = (sources?.papers || [])[q.pIdx];
+    if (!p?.pages?.length) return Promise.resolve(null);
+    return import("../engine/cropQuestion.js").then((m) => m.getQuestionCrop(p.pages, q.text));
+  };
   const renderCard = (c, rank, headerChip) => (
     <GroupCard key={c.id} rank={rank} cluster={c} max={maxMarks}
       collapsed={collapsed.has(c.id)} onToggle={() => toggleCollapse(c.id)}
       starred={starred.has(c.id)} done={done.has(c.id)}
       onStar={() => onToggleStar(c.id)} onDone={() => onToggleDone(c.id)}
-      flash={flash} headerChip={headerChip} onOpenSource={sources ? openSource : null} />
+      flash={flash} headerChip={headerChip} onOpenSource={sources ? openSource : null}
+      onCrop={sources ? cropFor : null} />
   );
   const allCollapsed = allGroups.length > 0 && allGroups.every((c) => collapsed.has(c.id));
   const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(allGroups.map((c) => c.id)));

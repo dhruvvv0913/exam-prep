@@ -30,6 +30,28 @@ export async function ocrImage(image) {
   }
 }
 
+// OCR a canvas and return its text LINES with pixel bounding boxes (top/bottom
+// in the canvas's own pixels). `blocks: true` asks Tesseract for the layout
+// boxes. Used by cropQuestion.js to find per-question crop boundaries on scanned
+// papers (which have no text layer to take positions from).
+export async function ocrLines(canvas) {
+  const { createWorker } = await loadTesseract();
+  const worker = await createWorker("eng", 1, WORKER_OPTS);
+  try {
+    const { data } = await worker.recognize(canvas, {}, { blocks: true });
+    const out = [];
+    for (const block of data.blocks || [])
+      for (const para of block.paragraphs || [])
+        for (const ln of para.lines || []) {
+          const text = (ln.text || "").trim();
+          if (text && ln.bbox) out.push({ text, top: ln.bbox.y0, bottom: ln.bbox.y1 });
+        }
+    return out;
+  } finally {
+    await worker.terminate();
+  }
+}
+
 // OCR every page of an already-loaded pdfjs document.
 // `onProgress(done, total)` is optional, for the loading UI.
 export async function ocrDocument(doc, { scale, onProgress } = {}) {

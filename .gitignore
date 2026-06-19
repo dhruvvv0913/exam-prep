@@ -32,6 +32,9 @@ scripts/eod-items.json
 # Generated grouping output from scripts/llm-group.mjs
 scripts/*.out.json
 
+# Temp per-question crops from scripts/crop-probe.mjs & crop-match.mjs
+scripts/_crops/
+
 # Local environment (Supabase keys etc.)
 .env
 .env.local
