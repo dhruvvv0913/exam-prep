@@ -28,13 +28,14 @@ function MiniCheck({ on, onClick }) {
       width: 26, height: 26, borderRadius: 8, cursor: "pointer", flex: "0 0 auto",
       border: `1.5px solid ${on ? C.good : "#d3d6e6"}`, background: on ? C.good : "#fff",
       display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
-    }}>{on && <IconCheck s={14} />}</button>);
+      transition: "background .2s, border-color .2s",
+    }}>{on && <span style={{ display: "inline-flex", animation: "pop .35s ease" }}><IconCheck s={14} /></span>}</button>);
 }
 
 function StarBtn({ on, onClick }) {
   return (
     <button onClick={onClick} title={on ? "Unstar" : "Star this"} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex" }}>
-      <IconStar s={20} on={on} />
+      <span style={{ display: "inline-flex", animation: on ? "pop .4s ease" : "none" }}><IconStar s={20} on={on} /></span>
     </button>);
 }
 
@@ -201,7 +202,9 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
     <div id={`topic-${cluster.id}`}
       onMouseEnter={(e) => { if (!lit) { e.currentTarget.style.boxShadow = C.shadowMd; e.currentTarget.style.transform = "translateY(-2px)"; } }}
       onMouseLeave={(e) => { if (!lit) { e.currentTarget.style.boxShadow = C.shadowSm; e.currentTarget.style.transform = "none"; } }}
-      style={{ background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s, transform .2s ease", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
+      style={{ position: "relative", background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s, transform .2s ease", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
+      {/* the top result gets a gradient hairline to stand out */}
+      {rank === 1 && !unique && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: C.grad }} />}
       {/* header (click / Enter / Space to collapse/expand) */}
       <div onClick={onToggle} role="button" tabIndex={0} aria-expanded={!collapsed}
         aria-label={`${cluster.topic} — ${collapsed ? "expand" : "collapse"}`}

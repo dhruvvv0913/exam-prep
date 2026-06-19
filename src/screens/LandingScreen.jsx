@@ -121,6 +121,31 @@ function HandoutsZone({ files, onAdd, onRemove }) {
     </div>);
 }
 
+// A tiny animated "this is what you'll get" preview of a ranked result, so a
+// first-time visitor sees the payoff before uploading anything.
+function HeroPreview() {
+  const row = (rank, topic, reps, w, delay) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: rank === 1 ? hexA(C.primary, 0.05) : "#fbfbfe", borderRadius: 10, border: `1px solid ${C.lineSoft}`, animation: `rise .5s ${delay}s both` }}>
+      <div style={{ width: 22, height: 22, borderRadius: "50%", background: rank === 1 ? C.grad : C.primarySoft, color: rank === 1 ? "#fff" : C.primary, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: C.font, fontWeight: 700, fontSize: 11, flex: "0 0 auto", boxShadow: rank === 1 ? C.gradGlow : "none" }}>{rank}</div>
+      <span style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: C.ink2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{topic}</span>
+      <span style={{ fontFamily: C.font, fontSize: 10.5, fontWeight: 700, color: C.faint, flex: "0 0 auto" }}>×{reps}</span>
+      <div style={{ width: 50, height: 6, borderRadius: 999, background: "#eef0f8", overflow: "hidden", flex: "0 0 auto" }}>
+        <div style={{ height: "100%", width: `${w}%`, background: `linear-gradient(90deg, ${C.primary}, ${C.violet})`, borderRadius: 999, transformOrigin: "left", animation: `growx 1s ${delay + 0.3}s both cubic-bezier(.4,0,.2,1)` }} />
+      </div>
+    </div>
+  );
+  return (
+    <div style={{ width: "100%", maxWidth: 400, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, boxShadow: C.shadowMd, padding: 14, position: "relative", overflow: "hidden", animation: "rise .6s .3s both" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: C.grad }} />
+      <div style={{ fontFamily: C.font, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: C.faint, margin: "3px 0 11px" }}>Most repeated questions</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {row(1, "Booth's multiplication", 5, 92, 0.45)}
+        {row(2, "Cache hit-ratio numericals", 3, 62, 0.6)}
+        {row(3, "Addressing modes", 2, 42, 0.75)}
+      </div>
+    </div>);
+}
+
 export default function LandingScreen({ papers, handouts, setPapers, setHandouts, onStart, onBrowse, auth, useAi, setUseAi }) {
   const isMobile = useIsMobile();
   const ready = papers.length > 0;
@@ -133,21 +158,25 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
       <FloatField />
       <div style={{ position: "relative", zIndex: 1, maxWidth: 880, margin: "0 auto", padding: isMobile ? "34px 20px 48px" : "52px 32px 60px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 999, background: "#fff", border: `1px solid ${C.line}`, boxShadow: C.shadowSm, marginBottom: 22 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 14px", borderRadius: 999, background: "#fff", border: `1px solid ${C.line}`, boxShadow: C.shadowSm, marginBottom: 22, animation: "rise .5s both" }}>
           <IconSparkle s={15} c={C.primary} />
           <span style={{ fontFamily: C.font, fontSize: 13, fontWeight: 500, color: C.ink2 }}>Find the questions that actually repeat</span>
         </div>
-        <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: isMobile ? 32 : 46, lineHeight: 1.08, textAlign: "center", color: C.ink, letterSpacing: -1, margin: 0 }}>
+        <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: isMobile ? 32 : 46, lineHeight: 1.08, textAlign: "center", color: C.ink, letterSpacing: -1, margin: 0, animation: "rise .5s .07s both" }}>
           Upload. Learn.<br /><span style={{ background: C.grad, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>Ace the exam.</span>
         </h1>
-        <p style={{ fontFamily: C.font, fontSize: isMobile ? 15 : 17, lineHeight: 1.55, color: C.muted, textAlign: "center", maxWidth: 470, margin: "16px 0 20px", textWrap: "pretty" }}>
+        <p style={{ fontFamily: C.font, fontSize: isMobile ? 15 : 17, lineHeight: 1.55, color: C.muted, textAlign: "center", maxWidth: 470, margin: "16px 0 20px", textWrap: "pretty", animation: "rise .5s .14s both" }}>
           Drop in your past exam papers and we'll surface the questions that come back year after year — ranked by how often they repeat.
         </p>
-        <div style={{ display: "flex", gap: 9, flexWrap: "wrap", justifyContent: "center", marginBottom: 34 }}>
+        <div style={{ display: "flex", gap: 9, flexWrap: "wrap", justifyContent: "center", marginBottom: 26, animation: "rise .5s .2s both" }}>
           {["100% free", "No sign-up to start", "Runs in your browser"].map((t) => (
             <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, background: "#fff", border: `1px solid ${C.line}`, boxShadow: C.shadowSm, fontFamily: C.font, fontSize: 12.5, fontWeight: 500, color: C.ink2 }}>
               <IconCheck s={11} c={C.good} sw={2.8} /> {t}
             </span>))}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: 34 }}>
+          <HeroPreview />
         </div>
 
         <Tip id="landing-slides" title="Tip: add your slides for better results">
