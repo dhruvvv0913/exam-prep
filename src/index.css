@@ -1,15 +1,15 @@
-html, body { margin: 0; height: 100%; background: #edeffa; }
+html, body { margin: 0; height: 100%; background: #0a0b11; color-scheme: dark; }
 #root { height: 100%; }
 * { box-sizing: border-box; }
 button { font-family: inherit; }
 
 /* Visible keyboard focus everywhere (mouse clicks won't show the ring, thanks
    to :focus-visible). Covers native controls + our role="button" card headers. */
-:focus-visible { outline: 2px solid #3f51c4; outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid #828dff; outline-offset: 2px; border-radius: 4px; }
 button:focus:not(:focus-visible), [role="button"]:focus:not(:focus-visible) { outline: none; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #d3d6e6; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
-::-webkit-scrollbar-thumb:hover { background: #b9bdd6; background-clip: content-box; }
+::-webkit-scrollbar-thumb { background: #2a2d3c; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: #3a3e52; background-clip: content-box; }
 @keyframes fl1 { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(calc(-1 * var(--amp,16px))) rotate(8deg); } }
 @keyframes fl2 { 0%,100% { transform: translateY(0) translateX(0); } 50% { transform: translateY(var(--amp,12px)) translateX(calc(var(--amp,12px) * 0.7)); } }
 @keyframes fl3 { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(calc(-1 * var(--amp,12px))) rotate(-10deg); } }

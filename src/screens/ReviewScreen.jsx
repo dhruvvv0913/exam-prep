@@ -11,7 +11,7 @@ import { useIsMobile } from "../useIsMobile.js";
 
 const selStyle = {
   fontFamily: C.font, fontSize: 12.5, color: C.ink2, padding: "5px 8px",
-  borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", flex: "0 0 auto",
+  borderRadius: 8, border: `1px solid ${C.line}`, background: C.card, cursor: "pointer", flex: "0 0 auto",
 };
 
 export default function ReviewScreen({ groups: initial, onSave, onCancel }) {
@@ -54,7 +54,7 @@ export default function ReviewScreen({ groups: initial, onSave, onCancel }) {
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: "0 0 auto", padding: isMobile ? "16px" : "20px 32px", borderBottom: `1px solid ${C.line}`, background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      <div style={{ flex: "0 0 auto", padding: isMobile ? "16px" : "20px 32px", borderBottom: `1px solid ${C.line}`, background: C.card, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: isMobile ? 20 : 24, color: C.ink }}>Review &amp; edit groups</div>
           <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted, marginTop: 3 }}>
@@ -72,7 +72,7 @@ export default function ReviewScreen({ groups: initial, onSave, onCancel }) {
           {groups.map((g) => {
             const others = groups.filter((o) => o.id !== g.id);
             return (
-              <div key={g.id} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, boxShadow: C.shadowSm, padding: 16 }}>
+              <div key={g.id} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, boxShadow: C.shadowSm, padding: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
                   <input value={g.topic} onChange={(e) => rename(g.id, e.target.value)}
                     style={{ fontFamily: C.font, fontWeight: 600, fontSize: 15, color: C.ink, border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 10px", flex: "1 1 200px", minWidth: 0 }} />
@@ -86,8 +86,8 @@ export default function ReviewScreen({ groups: initial, onSave, onCancel }) {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {g.items.map((it) => (
-                    <div key={it.uid} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
-                      <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{it.year ?? "?"}</span>
+                    <div key={it.uid} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: C.card2, border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
+                      <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: C.card2, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{it.year ?? "?"}</span>
                       <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{it.text}</div>
                       <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{it.marks ?? 5} {(it.marks ?? 5) === 1 ? "mark" : "marks"}</span>
                       <select value="" onChange={(e) => e.target.value && moveItem(it.uid, e.target.value)} style={selStyle}>

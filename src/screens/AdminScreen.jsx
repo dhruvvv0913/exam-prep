@@ -8,8 +8,8 @@ import { Tag, PrimaryButton, GhostButton } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { listSubjects, listEntitlements, grantAccess, revokeAccess, deleteSubject, listContributions, approveContribution, rejectContribution, listUsage } from "../engine/libraryDb.js";
 
-const card = { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 20, boxShadow: C.shadowSm };
-const input = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none" };
+const card = { background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: 20, boxShadow: C.shadowSm };
+const input = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.card, color: C.ink, outline: "none" };
 
 export default function AdminScreen({ onBack }) {
   const isMobile = useIsMobile();
@@ -72,7 +72,7 @@ export default function AdminScreen({ onBack }) {
         </button>
         <h1 style={{ fontFamily: C.font, fontWeight: 700, fontSize: isMobile ? 24 : 30, color: C.ink, letterSpacing: -0.4, margin: "0 0 22px" }}>Admin · Library</h1>
 
-        {msg && <div style={{ fontFamily: C.font, fontSize: 13.5, padding: "10px 14px", borderRadius: 10, marginBottom: 18, color: msg.kind === "ok" ? C.good : "#c0392b", background: msg.kind === "ok" ? C.goodSoft : "#fdecea" }}>{msg.text}</div>}
+        {msg && <div style={{ fontFamily: C.font, fontSize: 13.5, padding: "10px 14px", borderRadius: 10, marginBottom: 18, color: msg.kind === "ok" ? C.good : C.danger, background: msg.kind === "ok" ? C.goodSoft : C.dangerSoft }}>{msg.text}</div>}
 
         {/* Pending contributions — always shown so the review area is findable */}
         <div style={{ ...card, marginBottom: 18 }}>
@@ -81,7 +81,7 @@ export default function AdminScreen({ onBack }) {
             ? <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.faint, lineHeight: 1.5 }}>Nothing awaiting review yet — when a signed-in student uses “Contribute to library”, their submission appears here to approve or reject.</div>
             : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {contribs.map((c) => (
-                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 10, flexWrap: "wrap" }}>
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.card2, border: `1px solid ${C.lineSoft}`, borderRadius: 10, flexWrap: "wrap" }}>
                     <div style={{ flex: "1 1 200px", minWidth: 0 }}>
                       <div style={{ fontFamily: C.font, fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}{c.code ? ` · ${c.code}` : ""}</div>
                       <div style={{ fontFamily: C.font, fontSize: 12, color: C.faint }}>
@@ -89,7 +89,7 @@ export default function AdminScreen({ onBack }) {
                       </div>
                     </div>
                     <button disabled={busy} onClick={() => run(() => approveContribution(c), "Contribution approved.")} style={{ fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: "#fff", background: C.good, border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Approve</button>
-                    <button disabled={busy} onClick={() => run(() => rejectContribution(c.id), "Contribution rejected.")} style={{ fontFamily: C.font, fontSize: 12.5, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Reject</button>
+                    <button disabled={busy} onClick={() => run(() => rejectContribution(c.id), "Contribution rejected.")} style={{ fontFamily: C.font, fontSize: 12.5, color: C.danger, background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Reject</button>
                   </div>))}
               </div>}
         </div>
@@ -138,7 +138,7 @@ export default function AdminScreen({ onBack }) {
             ? <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.faint }}>No grants yet.</div>
             : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {grants.map((g) => (
-                  <div key={g.email + g.subject_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 10 }}>
+                  <div key={g.email + g.subject_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: C.card2, border: `1px solid ${C.lineSoft}`, borderRadius: 10 }}>
                     <span style={{ fontFamily: C.font, fontSize: 13.5, color: C.ink, fontWeight: 500, flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.email}</span>
                     <Tag>{nameOf(g.subject_id)}</Tag>
                     <button onClick={() => run(() => revokeAccess(g.email, g.subject_id), "Access revoked.")} title="Revoke" style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={15} c={C.faint} /></button>
@@ -153,13 +153,13 @@ export default function AdminScreen({ onBack }) {
             ? <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.faint }}>None yet — upload papers, then use “Publish to library” on the analysis screen.</div>
             : <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {subjects.map((s) => (
-                  <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 10 }}>
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.card2, border: `1px solid ${C.lineSoft}`, borderRadius: 10 }}>
                     <div style={{ flex: "1 1 auto", minWidth: 0 }}>
                       <div style={{ fontFamily: C.font, fontSize: 14, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.subject}</div>
                       <div style={{ fontFamily: C.font, fontSize: 12, color: C.faint }}>{s.id} · {s.question_count} questions</div>
                     </div>
                     {s.is_free && <Tag tone="good">Free</Tag>}
-                    <button onClick={() => { if (confirm(`Delete "${s.subject}" from the library?`)) run(() => deleteSubject(s.id), "Subject deleted."); }} style={{ fontFamily: C.font, fontSize: 12.5, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer" }}>Delete</button>
+                    <button onClick={() => { if (confirm(`Delete "${s.subject}" from the library?`)) run(() => deleteSubject(s.id), "Subject deleted."); }} style={{ fontFamily: C.font, fontSize: 12.5, color: C.danger, background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer" }}>Delete</button>
                   </div>))}
               </div>}
         </div>

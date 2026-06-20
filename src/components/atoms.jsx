@@ -38,7 +38,7 @@ export function Logo({ onClick }) {
 
 export function Tag({ children, tone = "muted", title }) {
   const map = {
-    muted: { bg: "#f1f2f8", bd: C.line, fg: C.muted },
+    muted: { bg: C.card2, bd: C.line, fg: C.muted },
     primary: { bg: C.primarySoft, bd: "transparent", fg: C.primary },
     gold: { bg: C.goldSoft, bd: "transparent", fg: C.gold },
     good: { bg: C.goodSoft, bd: "transparent", fg: C.good },
@@ -53,8 +53,8 @@ export function Tag({ children, tone = "muted", title }) {
 export function HeatBar({ value, max, w = 64 }) {
   const pct = Math.max(12, Math.round((value / (max || 1)) * 100));
   return (
-    <div style={{ width: w, height: 6, borderRadius: 999, background: "#e9eaf4", overflow: "hidden", flex: "0 0 auto" }}>
-      <div style={{ width: pct + "%", height: "100%", background: `linear-gradient(90deg, ${C.primary}, #5b6cdb)`, borderRadius: 999, transformOrigin: "left", animation: "growx .9s cubic-bezier(.4,0,.2,1) both" }} />
+    <div style={{ width: w, height: 6, borderRadius: 999, background: C.track, overflow: "hidden", flex: "0 0 auto" }}>
+      <div style={{ width: pct + "%", height: "100%", background: `linear-gradient(90deg, ${C.primary}, #a78bfa)`, borderRadius: 999, transformOrigin: "left", animation: "growx .9s cubic-bezier(.4,0,.2,1) both" }} />
     </div>);
 }
 
@@ -66,7 +66,7 @@ export function PrimaryButton({ children, onClick, disabled, glow, w, size = "md
       style={{
         fontFamily: C.font, fontSize: fs, fontWeight: 600, padding: pad, width: w || "auto",
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9,
-        color: "#fff", background: disabled ? "#c2c6dd" : C.grad, border: "none",
+        color: "#fff", background: disabled ? C.line2 : C.grad, border: "none",
         borderRadius: 12, cursor: disabled ? "not-allowed" : "pointer",
         boxShadow: disabled ? "none" : C.gradGlow,
         transition: "transform .14s ease, box-shadow .2s, filter .2s",
@@ -87,7 +87,7 @@ export function GhostButton({ children, onClick }) {
       onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = C.line; e.currentTarget.style.boxShadow = C.shadowSm; e.currentTarget.style.color = C.ink2; }}
       style={{
         fontFamily: C.font, fontSize: 14, fontWeight: 500, padding: "9px 18px",
-        color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 11,
+        color: C.ink2, background: C.card, border: `1px solid ${C.line}`, borderRadius: 11,
         cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, boxShadow: C.shadowSm,
       }}>{children}</button>);
 }

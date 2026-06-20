@@ -15,7 +15,7 @@ function SubjectCard({ s, locked, onClick, index = 0, onDelete }) {
   return (
     <div onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
       style={{
-        background: "#fff", border: `1px solid ${hover ? hexA(C.primary, 0.5) : C.line}`, borderRadius: 16,
+        background: C.card, border: `1px solid ${hover ? hexA(C.primary, 0.5) : C.line}`, borderRadius: 16,
         padding: 20, cursor: "pointer", boxShadow: hover ? "0 8px 24px rgba(63,81,196,0.14)" : C.shadowSm,
         transition: "border-color .15s, box-shadow .15s, transform .15s", transform: hover ? "translateY(-2px)" : "none",
         display: "flex", flexDirection: "column", gap: 12, minWidth: 0, opacity: locked ? 0.92 : 1,
@@ -26,7 +26,7 @@ function SubjectCard({ s, locked, onClick, index = 0, onDelete }) {
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink, lineHeight: 1.3, textWrap: "pretty" }}>{s.subject}</div>
           {s.code && <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, marginTop: 2 }}>{s.code}</div>}
         </div>
-        <div style={{ width: 38, height: 38, flex: "0 0 auto", borderRadius: 11, background: locked ? "#f1f2f8" : C.grad, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: locked ? "none" : C.gradGlow }}>
+        <div style={{ width: 38, height: 38, flex: "0 0 auto", borderRadius: 11, background: locked ? C.card2 : C.grad, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: locked ? "none" : C.gradGlow }}>
           {locked ? <IconLock s={18} c={C.muted} /> : <IconLayers s={18} c="#fff" />}
         </div>
       </div>
@@ -51,9 +51,9 @@ function Paywall({ subject, auth, onClose }) {
   return (
     <React.Fragment>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
-      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`${subject.subject} is locked`} style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(440px, 92vw)", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 26, outline: "none" }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`${subject.subject} is locked`} style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(440px, 92vw)", background: C.card, borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 26, outline: "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "#f1f2f8", display: "flex", alignItems: "center", justifyContent: "center" }}><IconLock s={22} c={C.muted} /></div>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: C.card2, display: "flex", alignItems: "center", justifyContent: "center" }}><IconLock s={22} c={C.muted} /></div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
         </div>
         <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 19, color: C.ink, marginTop: 14 }}>{subject.subject} is locked</div>
@@ -68,7 +68,7 @@ function Paywall({ subject, auth, onClose }) {
               <p style={{ fontFamily: C.font, fontSize: 14, color: C.muted, lineHeight: 1.55, margin: "8px 0 14px" }}>
                 This is a premium subject. To unlock it, complete payment and we'll grant access to your account.
               </p>
-              <div style={{ fontFamily: C.font, fontSize: 13, color: C.ink2, background: "#f7f8fc", border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
+              <div style={{ fontFamily: C.font, fontSize: 13, color: C.ink2, background: C.card2, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
                 Your account: <strong>{auth.user.email}</strong>
               </div>
               <GhostButton onClick={onClose}>Got it</GhostButton>
@@ -140,7 +140,7 @@ export default function LibraryScreen({ onOpen, onOpenMine, onUpload }) {
         {subjects === null
           ? <div style={{ fontFamily: C.font, color: C.muted, padding: "40px 0", textAlign: "center" }}>Loading subjects…</div>
           : subjects.length === 0
-            ? <div style={{ fontFamily: C.font, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "28px 24px", textAlign: "center", lineHeight: 1.6 }}>
+            ? <div style={{ fontFamily: C.font, color: C.muted, background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: "28px 24px", textAlign: "center", lineHeight: 1.6 }}>
                 No subjects published yet.<br /><span style={{ fontSize: 13.5, color: C.faint }}>{auth.isAdmin ? "Upload papers and use “Publish to library” to add one." : "Check back soon."}</span>
               </div>
             : (() => {
@@ -151,7 +151,7 @@ export default function LibraryScreen({ onOpen, onOpenMine, onUpload }) {
                     {subjects.length > 3 && (
                       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search subjects by name or code…"
                         aria-label="Search subjects"
-                        style={{ width: "100%", boxSizing: "border-box", fontFamily: C.font, fontSize: 14, padding: "10px 14px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none", marginBottom: 16 }} />
+                        style={{ width: "100%", boxSizing: "border-box", fontFamily: C.font, fontSize: 14, padding: "10px 14px", borderRadius: 12, border: `1px solid ${C.line}`, background: C.card, color: C.ink, outline: "none", marginBottom: 16 }} />
                     )}
                     {shown.length === 0
                       ? <div style={{ fontFamily: C.font, color: C.muted, padding: "24px 4px" }}>No subjects match “{query}”.</div>

@@ -26,7 +26,7 @@ function MiniCheck({ on, onClick }) {
   return (
     <button onClick={onClick} title={on ? "Mark as not done" : "Mark as done"} style={{
       width: 26, height: 26, borderRadius: 8, cursor: "pointer", flex: "0 0 auto",
-      border: `1.5px solid ${on ? C.good : "#d3d6e6"}`, background: on ? C.good : "#fff",
+      border: `1.5px solid ${on ? C.good : C.line2}`, background: on ? C.good : C.card,
       display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
       transition: "background .2s, border-color .2s",
     }}>{on && <span style={{ display: "inline-flex", animation: "pop .35s ease" }}><IconCheck s={14} /></span>}</button>);
@@ -47,7 +47,7 @@ function PublishModal({ defaults, content, onClose }) {
   const [isFree, setIsFree] = React.useState(true); // free by default while launching
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
-  const field = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none", width: "100%", boxSizing: "border-box" };
+  const field = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.card, color: C.ink, outline: "none", width: "100%", boxSizing: "border-box" };
   const lab = { fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: C.ink2, margin: "12px 0 5px" };
 
   const dialogRef = useDismissable(onClose);
@@ -65,7 +65,7 @@ function PublishModal({ defaults, content, onClose }) {
   return (
     <React.Fragment>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
-      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Publish to library" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", maxHeight: "88vh", overflowY: "auto", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24, outline: "none" }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Publish to library" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", maxHeight: "88vh", overflowY: "auto", background: C.card, borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24, outline: "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 18, color: C.ink }}>Publish to library</div>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
@@ -81,7 +81,7 @@ function PublishModal({ defaults, content, onClose }) {
           <input type="checkbox" checked={isFree} onChange={(e) => setIsFree(e.target.checked)} /> Free — anyone can open it (recommended while launching)
         </label>
         <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, marginBottom: 16 }}>{defaults.paperCount} papers · {defaults.questionCount} questions · {defaults.topicCount} topics</div>
-        {msg && <div style={{ fontFamily: C.font, fontSize: 13, padding: "9px 12px", borderRadius: 9, marginBottom: 14, color: msg.k === "ok" ? C.good : "#c0392b", background: msg.k === "ok" ? C.goodSoft : "#fdecea" }}>{msg.t}</div>}
+        {msg && <div style={{ fontFamily: C.font, fontSize: 13, padding: "9px 12px", borderRadius: 9, marginBottom: 14, color: msg.k === "ok" ? C.good : C.danger, background: msg.k === "ok" ? C.goodSoft : C.dangerSoft }}>{msg.t}</div>}
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <GhostButton onClick={onClose}>{msg?.k === "ok" ? "Done" : "Cancel"}</GhostButton>
           {msg?.k !== "ok" && <PrimaryButton onClick={publish} disabled={busy}>{busy ? "Publishing…" : "Publish"}</PrimaryButton>}
@@ -101,7 +101,7 @@ function ContributeModal({ defaults, content, onClose }) {
   const [msg, setMsg] = React.useState(null);
   React.useEffect(() => { listSubjects().then(setSubjects).catch(() => {}); }, []);
   const dialogRef = useDismissable(onClose);
-  const field = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none", width: "100%", boxSizing: "border-box" };
+  const field = { fontFamily: C.font, fontSize: 14, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.card, color: C.ink, outline: "none", width: "100%", boxSizing: "border-box" };
   const lab = { fontFamily: C.font, fontSize: 12.5, fontWeight: 600, color: C.ink2, margin: "12px 0 5px" };
   // If the typed name looks like a subject that already exists, nudge the user
   // to *pool* into it instead of spawning a near-duplicate subject.
@@ -120,7 +120,7 @@ function ContributeModal({ defaults, content, onClose }) {
   return (
     <React.Fragment>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
-      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Contribute to the library" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", maxHeight: "88vh", overflowY: "auto", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24, outline: "none" }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Contribute to the library" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(460px,92vw)", maxHeight: "88vh", overflowY: "auto", background: C.card, borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, padding: 24, outline: "none" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 18, color: C.ink }}>Contribute to the library</div>
           <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><IconClose s={18} c={C.faint} /></button>
@@ -141,7 +141,7 @@ function ContributeModal({ defaults, content, onClose }) {
           <option value="">No — propose it as a new subject</option>
           {subjects.map((s) => <option key={s.id} value={s.id}>Add my papers to “{s.subject}”</option>)}
         </select>
-        {msg && <div style={{ fontFamily: C.font, fontSize: 13, padding: "9px 12px", borderRadius: 9, margin: "14px 0 0", color: msg.k === "ok" ? C.good : "#c0392b", background: msg.k === "ok" ? C.goodSoft : "#fdecea" }}>{msg.t}</div>}
+        {msg && <div style={{ fontFamily: C.font, fontSize: 13, padding: "9px 12px", borderRadius: 9, margin: "14px 0 0", color: msg.k === "ok" ? C.good : C.danger, background: msg.k === "ok" ? C.goodSoft : C.dangerSoft }}>{msg.t}</div>}
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
           <GhostButton onClick={onClose}>{msg?.k === "ok" ? "Done" : "Cancel"}</GhostButton>
           {msg?.k !== "ok" && <PrimaryButton onClick={submit} disabled={busy}>{busy ? "Sending…" : "Submit"}</PrimaryButton>}
@@ -155,13 +155,13 @@ function ToggleChip({ active, onClick, children }) {
     <button onClick={onClick} aria-pressed={active} style={{
       fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "8px 14px", borderRadius: 999, cursor: "pointer",
       border: `1px solid ${active ? "transparent" : C.line}`, color: active ? "#fff" : C.ink2,
-      background: active ? C.primary : "#fff", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+      background: active ? C.primary : C.card, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
     }}>{children}</button>);
 }
 
 // A small clickable chip linking a question to the "other" view (paper⇄topic).
 function LinkChip({ children, title, onClick, tone = "muted" }) {
-  const c = tone === "primary" ? { bg: C.primarySoft, fg: C.primary } : { bg: "#f1f2f8", fg: C.muted };
+  const c = tone === "primary" ? { bg: C.primarySoft, fg: C.primary } : { bg: C.card2, fg: C.muted };
   return (
     <button onClick={(e) => { e.stopPropagation(); onClick(); }} title={title}
       onMouseEnter={(e) => { e.currentTarget.style.filter = "brightness(0.96)"; e.currentTarget.style.textDecoration = "underline"; }}
@@ -187,7 +187,7 @@ function QuestionImage({ crop }) {
   if (s.loading) return <div style={note}>Rendering the original…</div>;
   if (s.error || !s.url) return <div style={note}>Couldn’t locate this question in the source file.</div>;
   return <img src={s.url} alt="Original question, cropped from the source paper"
-    style={{ marginTop: 2, maxWidth: "100%", borderRadius: 8, border: `1px solid ${C.line}`, background: "#fff", display: "block" }} />;
+    style={{ marginTop: 2, maxWidth: "100%", borderRadius: 8, border: `1px solid ${C.line}`, background: C.card, display: "block" }} />;
 }
 
 // ---- one group card: topic header + collapsible question list -----------
@@ -202,7 +202,7 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
     <div id={`topic-${cluster.id}`}
       onMouseEnter={(e) => { if (!lit) { e.currentTarget.style.boxShadow = C.shadowMd; e.currentTarget.style.transform = "translateY(-2px)"; } }}
       onMouseLeave={(e) => { if (!lit) { e.currentTarget.style.boxShadow = C.shadowSm; e.currentTarget.style.transform = "none"; } }}
-      style={{ position: "relative", background: "#fff", borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s, transform .2s ease", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
+      style={{ position: "relative", background: C.card, borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s, transform .2s ease", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
       {/* the top result gets a gradient hairline to stand out */}
       {rank === 1 && !unique && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: C.grad }} />}
       {/* header (click / Enter / Space to collapse/expand) */}
@@ -212,7 +212,7 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
         style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "15px 18px", cursor: "pointer" }}>
         <div style={{
           width: 30, height: 30, flex: "0 0 auto", borderRadius: "50%", marginTop: 1,
-          background: unique ? "#f1f2f8" : (rank === 1 ? C.grad : C.primarySoft),
+          background: unique ? C.card2 : (rank === 1 ? C.grad : C.primarySoft),
           color: unique ? C.faint : (rank === 1 ? "#fff" : C.primary),
           display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: C.font, fontWeight: 700, fontSize: 13.5,
@@ -245,11 +245,11 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
       {!collapsed && (
         <div style={{ padding: isMobile ? "0 14px 14px 14px" : "0 18px 16px 62px", display: "flex", flexDirection: "column", gap: 8 }}>
           {cluster.questions.map((q, i) => (
-            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "11px 13px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
+            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "11px 13px", background: C.card2, border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 {onOpenSource && q.pIdx != null
                   ? <LinkChip title="Open this paper in a new tab" onClick={() => onOpenSource(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"} ↗</LinkChip>
-                  : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: "#f1f2f8", borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>}
+                  : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: C.card2, borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>}
                 <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
                 <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
               </div>
@@ -279,7 +279,7 @@ function PptSection({ deck, children, flash }) {
   return (
     <div id={deckSlug(deck.deck)} style={{ scrollMarginTop: 12, animation: "rise .4s ease backwards" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 6px 12px", borderRadius: 12, transition: "background .3s", background: lit ? hexA(C.primary, 0.07) : "transparent" }}>
-        <div style={{ width: 34, height: 34, flex: "0 0 auto", borderRadius: 10, background: off ? "#f1f2f8" : C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 34, height: 34, flex: "0 0 auto", borderRadius: 10, background: off ? C.card2 : C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <IconLayers s={17} c={off ? C.faint : C.primary} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -300,10 +300,10 @@ function PptSection({ deck, children, flash }) {
 // Segmented control: importance-grouping vs PPT-grouping.
 function ViewToggle({ view, onChange }) {
   const opt = (val, label) => (
-    <button onClick={() => onChange(val)} aria-pressed={view === val} style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "7px 16px", borderRadius: 999, cursor: "pointer", border: "none", background: view === val ? "#fff" : "transparent", color: view === val ? C.primary : C.muted, boxShadow: view === val ? C.shadowSm : "none", transition: "color .15s, background .15s" }}>{label}</button>
+    <button onClick={() => onChange(val)} aria-pressed={view === val} style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, padding: "7px 16px", borderRadius: 999, cursor: "pointer", border: "none", background: view === val ? C.primary : "transparent", color: view === val ? "#fff" : C.muted, boxShadow: "none", transition: "color .15s, background .15s" }}>{label}</button>
   );
   return (
-    <div style={{ display: "inline-flex", gap: 3, padding: 3, background: "#eef0f8", borderRadius: 999, border: `1px solid ${C.line}` }}>
+    <div style={{ display: "inline-flex", gap: 3, padding: 3, background: C.track, borderRadius: 999, border: `1px solid ${C.line}` }}>
       {opt("importance", "By importance")}{opt("ppt", "By PPT")}
     </div>);
 }
@@ -403,13 +403,13 @@ function SourcesBar({ sources }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
-        style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+        style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, color: C.ink2, background: C.card, border: `1px solid ${C.line}`, borderRadius: 999, padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
         <IconFile s={14} c={C.ink2} /> View uploaded files
         <span style={{ color: C.faint, fontWeight: 500 }}>{counts}</span>
         <IconChevron s={14} c={C.faint} dir={open ? "up" : "down"} />
       </button>
       {open && (
-        <div style={{ marginTop: 10, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ marginTop: 10, background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
           {papers.length > 0 && (
             <div>
               <div style={lab}>Papers</div>
@@ -478,13 +478,13 @@ function OneMarkersBar({ groups, papers }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
-        style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, color: C.ink2, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
+        style={{ fontFamily: C.font, fontSize: 13, fontWeight: 600, color: C.ink2, background: C.card, border: `1px solid ${C.line}`, borderRadius: 999, padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
         <IconFile s={14} c={C.ink2} /> 1-mark questions
         <span style={{ color: C.faint, fontWeight: 500 }}>{total} across {keys.length} {keys.length === 1 ? "paper" : "papers"}</span>
         <IconChevron s={14} c={C.faint} dir={open ? "up" : "down"} />
       </button>
       {open && (
-        <div style={{ marginTop: 10, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ marginTop: 10, background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
           {keys.map((k) => {
             const qs = byPaper.get(k).slice().sort((a, b) => ord(a.id) - ord(b.id));
             return (
@@ -522,7 +522,7 @@ function RefinePreview({ oldGroups, newGroups, onApply, onClose, busy }) {
   return (
     <React.Fragment>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,22,42,0.34)", zIndex: 40, animation: "fadein .2s ease" }} />
-      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Improved grouping preview" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(720px,94vw)", maxHeight: "86vh", display: "flex", flexDirection: "column", background: "#fff", borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, overflow: "hidden", outline: "none" }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Improved grouping preview" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(720px,94vw)", maxHeight: "86vh", display: "flex", flexDirection: "column", background: C.card, borderRadius: 18, boxShadow: C.shadowLg, zIndex: 41, overflow: "hidden", outline: "none" }}>
         <div style={{ flex: "0 0 auto", padding: "18px 22px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Improved grouping</div>
@@ -537,7 +537,7 @@ function RefinePreview({ oldGroups, newGroups, onApply, onClose, busy }) {
             <div key={g.id} style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: C.font, fontWeight: 600, fontSize: 14.5, color: C.ink }}>{g.topic}</span>
-                {g.deck && <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, background: "#f1f2f8", borderRadius: 7, padding: "2px 7px" }}>{g.deck}</span>}
+                {g.deck && <span style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, background: C.card2, borderRadius: 7, padding: "2px 7px" }}>{g.deck}</span>}
                 <span style={{ fontFamily: C.font, fontSize: 12, color: C.faint }}>{g.items.length} {g.items.length === 1 ? "question" : "questions"}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -795,7 +795,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
               <span style={{ fontWeight: 600, color: C.ink2 }}>Studied <CountUp to={donePct} suffix="%" /></span>
               <span>{doneGroups.length} of {allGroups.length} topics · {doneMarks}/{totalMarksAll} marks done</span>
             </div>
-            <div style={{ height: 8, borderRadius: 999, background: "#e3e5f1", overflow: "hidden" }}>
+            <div style={{ height: 8, borderRadius: 999, background: C.track, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${donePct}%`, background: `linear-gradient(90deg, ${C.good}, #43c08a)`, borderRadius: 999, transition: "width .3s" }} />
             </div>
           </div>
@@ -805,7 +805,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
         {allGroups.length > 0 && (
           <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search topics or questions…"
-              style={{ flex: "1 1 240px", minWidth: 0, fontFamily: C.font, fontSize: 14, padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, outline: "none" }} />
+              style={{ flex: "1 1 240px", minWidth: 0, fontFamily: C.font, fontSize: 14, padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.card, color: C.ink, outline: "none" }} />
             <ToggleChip active={starredOnly} onClick={() => setStarredOnly((v) => !v)}><IconStar s={13} on c={starredOnly ? "#fff" : C.gold} /> Starred</ToggleChip>
             <ToggleChip active={hideDone} onClick={() => setHideDone((v) => !v)}><IconCheck s={12} c={hideDone ? "#fff" : C.good} sw={2.6} /> Hide done</ToggleChip>
             <ToggleChip active={false} onClick={toggleAll}><IconChevron s={14} c={C.ink2} dir={allCollapsed ? "down" : "up"} /> {allCollapsed ? "Expand all" : "Collapse all"}</ToggleChip>
@@ -815,7 +815,7 @@ export default function AnalysisScreen({ data, onGroupsChange, canSave, canSaveM
         <div key={effectiveView} style={{ animation: "fadein .35s ease" }}>
         {effectiveView === "importance" && <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {ranked.length === 0
-            ? <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
+            ? <div style={{ fontFamily: C.font, fontSize: 14.5, color: C.muted, background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, padding: "20px 22px", lineHeight: 1.5 }}>
                 {paperCount <= 1
                   ? <React.Fragment>This is a <strong>single paper</strong>, so there's nothing to compare against yet.{!fromLibrary && <React.Fragment> Upload two or more past papers of the same subject and we'll surface the questions that come back across years.</React.Fragment>} Everything found is listed below.</React.Fragment>
                   : <React.Fragment>No concept repeated across these <strong>{paperCount} papers</strong> yet — they may cover different syllabi, or each tested distinct topics. Everything found is listed below.</React.Fragment>}
