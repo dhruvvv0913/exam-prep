@@ -3,7 +3,7 @@
 // what they'll be able to do once the results are ready.
 import React from "react";
 import { C, hexA } from "../theme.js";
-import { IconCheck, IconStar, IconSparkle, IconLayers } from "../components/icons.jsx";
+import { IconCheck, IconStar, IconSparkle, IconLayers, IconArrow } from "../components/icons.jsx";
 import { FloatField } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { analyze } from "../engine/pipeline.js";
@@ -149,9 +149,12 @@ function FeatureTour() {
   const [paused, setPaused] = React.useState(false);
   React.useEffect(() => {
     if (paused) return;
-    const t = setInterval(() => setI((x) => (x + 1) % SLIDES.length), 4400);
+    const t = setInterval(() => setI((x) => (x + 1) % SLIDES.length), 3000);
     return () => clearInterval(t);
   }, [paused, i]);
+  const go = (d) => setI((x) => (x + d + SLIDES.length) % SLIDES.length);
+  const arrowBtn = { width: 30, height: 30, flex: "0 0 auto", borderRadius: "50%", border: `1px solid ${C.line}`, background: C.card2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, transition: "border-color .15s, background .15s" };
+  const arrowHover = (e, on) => { e.currentTarget.style.borderColor = on ? hexA(C.primary, 0.5) : C.line; e.currentTarget.style.background = on ? C.primarySoft : C.card2; };
   const S = SLIDES[i];
   const Viz = S.V;
   return (
@@ -168,11 +171,21 @@ function FeatureTour() {
         <div style={{ fontFamily: C.font, fontSize: 16, fontWeight: 600, color: C.ink, marginBottom: 4 }}>{S.t}</div>
         <div style={{ fontFamily: C.font, fontSize: 13, color: C.muted, lineHeight: 1.5, minHeight: 38 }}>{S.c}</div>
       </div>
-      <div style={{ display: "flex", gap: 6, marginTop: 14, justifyContent: "center" }}>
-        {SLIDES.map((_, n) => (
-          <button key={n} onClick={() => setI(n)} aria-label={`Show feature ${n + 1}`}
-            style={{ width: n === i ? 20 : 7, height: 7, borderRadius: 999, border: "none", padding: 0, cursor: "pointer", background: n === i ? C.primary : C.line2, transition: "width .3s ease, background .3s ease" }} />
-        ))}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 14 }}>
+        <button onClick={() => go(-1)} aria-label="Previous feature" style={arrowBtn}
+          onMouseEnter={(e) => arrowHover(e, true)} onMouseLeave={(e) => arrowHover(e, false)}>
+          <IconArrow s={15} c={C.muted} dir="left" />
+        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          {SLIDES.map((_, n) => (
+            <button key={n} onClick={() => setI(n)} aria-label={`Show feature ${n + 1}`}
+              style={{ width: n === i ? 20 : 7, height: 7, borderRadius: 999, border: "none", padding: 0, cursor: "pointer", background: n === i ? C.primary : C.line2, transition: "width .3s ease, background .3s ease" }} />
+          ))}
+        </div>
+        <button onClick={() => go(1)} aria-label="Next feature" style={arrowBtn}
+          onMouseEnter={(e) => arrowHover(e, true)} onMouseLeave={(e) => arrowHover(e, false)}>
+          <IconArrow s={15} c={C.muted} dir="right" />
+        </button>
       </div>
     </div>);
 }
