@@ -224,3 +224,20 @@ The figures in the margin indicate full marks.
   assert.ok(!qs.some((q) => /including question|figures in the margin|compulsory/i.test(q.text)), qs.map((q) => q.text).join(" | "));
   assert.ok(qs.some((q) => /cache memory/i.test(q.text)) && qs.some((q) => /virtual memory/i.test(q.text)));
 });
+
+test("Q-prefixed numbering ('Q1.' and OCR 'Ql.') is parsed; directive stem dropped", () => {
+  const paper = `MID SEMESTER EXAMINATION 2020
+Computer Organization and Architecture
+Ql. Write short answers or do as directed.
+a) What is Von Neumann architecture and how does it differ from Harvard?
+b) Explain the register content after a shift instruction in good detail.
+c) Why is the WFMC needed in a control step, explain here.
+Q2. a) What do you mean by register transfer notation, explain in detail?
+b) Write a routine for the PUSH and POP stack operations clearly.`;
+  const qs = splitQuestions(paper);
+  const ids = qs.map((q) => q.id);
+  assert.ok(ids.includes("q1a") && ids.includes("q1b") && ids.includes("q1c"), `Q1 parts lost: ${ids}`);
+  assert.ok(ids.includes("q2a") && ids.includes("q2b"), `Q2 parts lost: ${ids}`);
+  assert.ok(!qs.some((q) => /do as directed|write short answers/i.test(q.text)), "directive stem not dropped");
+  for (const q of qs.filter((q) => q.num === "1")) assert.equal(q.marks, 1, `Q1 part should be 1 mark: ${q.id}`);
+});

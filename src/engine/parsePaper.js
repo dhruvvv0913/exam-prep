@@ -197,10 +197,19 @@ function detectPartStyle(lines) {
 // Section headers that ride in as a stub question ("1) Short Questions") when a
 // real question's parts follow on later lines — not content.
 const isHeader = (t) => /^(short|long|very\s+short|objective|descriptive)\s+(answer\s+)?(type\s+)?questions?\b/i.test(t);
+// A compulsory-Q1 lead-in directive ("Write short answers or do as directed")
+// whose real content is the a)/b)/c) parts that follow — drop the stem itself.
+const isDirective = (t) => /^(write\s+short\s+answers?\b|do\s+as\s+directed\b)/i.test(t);
+
+// Some papers label questions "Q1." / "Q2)" (COA 2020 etc.), and OCR usually
+// reads the "1" as l / I / i / |. Normalise a leading "Q<n>" label to a bare
+// "<n>" so the dot/paren matchers below handle these papers too. Only touches a
+// genuine label (Q + 1–2 digit-ish chars + . or )) at the very start of a line.
+const normLabel = (l) => l.replace(/^[Qq]\s*([0-9lIi|]{1,2})\s*([.)])/, (_, n, t) => n.replace(/[lIi|]/g, "1") + t);
 
 export function splitQuestions(text) {
   const lines = text.split("\n");
-  const trimmed = lines.map((l) => l.trim());
+  const trimmed = lines.map((l) => normLabel(l.trim()));
   const Q_NUM = NUM[detectStyle(trimmed)];
   const Q_PART = PART[detectPartStyle(trimmed)];
   const out = [];
@@ -236,7 +245,7 @@ export function splitQuestions(text) {
     if (cur) {
       const raw = cur.text;
       const text = stripInstruction(cleanText(raw));
-      if (text.length > 8 && !isHeader(text)) {
+      if (text.length > 8 && !isHeader(text) && !isDirective(text)) {
         cur.text = text;
         cur.rawMarks = parseMarks(raw); // explicit marks token, if the paper has one
         let id = `q${cur.num}${cur.part || ""}`;
@@ -249,8 +258,7 @@ export function splitQuestions(text) {
     cur = null;
   };
 
-  for (const raw of lines) {
-    const l = raw.trim();
+  for (const l of trimmed) {
     if (!l || isNoise(l)) continue;
 
     let m = Q_NUM.exec(l);
