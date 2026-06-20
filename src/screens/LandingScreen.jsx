@@ -96,11 +96,28 @@ function PapersZone({ papers, setPapers }) {
     </div>);
 }
 
-// Optional zone: a simple flat list of handout files.
-function HandoutsZone({ files, onAdd, onRemove }) {
+// Per-file Slide ⇄ Assignment selector.
+function KindToggle({ kind, onChange }) {
+  const seg = (val, label, color) => (
+    <button onClick={(e) => { e.stopPropagation(); onChange(val); }}
+      title={val === "assignment" ? "Teacher's important questions — merged into the results & ranked higher" : "Lecture slides — group questions under their topics"}
+      style={{ fontFamily: C.font, fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 999, border: "none", cursor: "pointer", background: kind === val ? color : "transparent", color: kind === val ? "#fff" : C.muted, transition: "background .15s, color .15s" }}>{label}</button>
+  );
+  return (
+    <div style={{ display: "inline-flex", flex: "0 0 auto", borderRadius: 999, background: C.card, border: `1px solid ${C.line}`, padding: 2 }}>
+      {seg("slide", "Slide", C.primary)}
+      {seg("assignment", "Assignment", C.gold)}
+    </div>);
+}
+
+// Optional zone (the "PPTs area"): drop course slides AND/OR assignment lists,
+// then mark each file as a Slide (group by topic) or an Assignment (teacher's
+// important questions — merged into the results and boosted). `items` is a list
+// of { id, file, kind }.
+function MaterialsZone({ items, onAdd, onRemove, onSetKind }) {
   const inputRef = React.useRef(null);
   const [drag, setDrag] = React.useState(false);
-  const has = files.length > 0;
+  const has = items.length > 0;
   const pick = (e) => { const fs = acceptedFiles(e.target.files); if (fs.length) onAdd(fs); e.target.value = ""; };
   const drop = (e) => { e.preventDefault(); setDrag(false); const fs = acceptedFiles(e.dataTransfer.files); if (fs.length) onAdd(fs); };
   return (
@@ -108,13 +125,22 @@ function HandoutsZone({ files, onAdd, onRemove }) {
       style={{ flex: 1, minWidth: 280, background: drag ? hexA(C.primary, 0.08) : C.card, borderRadius: 18, border: `2px dashed ${drag ? C.primary : (has ? hexA(C.good, 0.45) : C.line2)}`, padding: 22, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 12, boxShadow: has ? C.shadowMd : C.shadowSm }}>
       <input ref={inputRef} type="file" accept={ACCEPT} multiple onChange={pick} style={{ display: "none" }} />
       <div style={{ width: 50, height: 50, borderRadius: 14, background: C.card2, display: "flex", alignItems: "center", justifyContent: "center" }}><IconUpload s={25} c={C.ink2} /></div>
-      <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Course slides &amp; handouts</div>
-      <Tag tone="good">optional · groups by your real slide topics</Tag>
+      <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink }}>Slides &amp; assignments</div>
+      <Tag tone="good">optional</Tag>
       {has
-        ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", width: "100%" }}>
-            {files.map((f, i) => <FileChip key={f.name + i} name={f.name} onRemove={() => onRemove(i)} />)}
+        ? <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+            {items.map((it) => {
+              const asn = it.kind === "assignment";
+              return (
+                <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px 7px 11px", borderRadius: 10, background: asn ? C.goldSoft : C.card2, border: `1px solid ${asn ? hexA(C.gold, 0.35) : C.line}` }}>
+                  <IconFile s={14} c={asn ? C.gold : C.ink2} />
+                  <span style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 12.5, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" }}>{it.file.name}</span>
+                  <KindToggle kind={it.kind} onChange={(k) => onSetKind(it.id, k)} />
+                  <button onClick={() => onRemove(it.id)} title="Remove" style={{ background: "none", border: "none", padding: 2, cursor: "pointer", display: "flex", flex: "0 0 auto" }}><IconClose s={13} c={C.faint} /></button>
+                </div>);
+            })}
           </div>
-        : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>Drop your lecture slide PDFs here.<br /><span style={{ fontSize: 12.5, color: C.faint }}>We read the slide titles and group questions under them</span></div>}
+        : <div style={{ fontFamily: C.font, fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>Drop course slide PDFs — or a teacher's important-question list.<br /><span style={{ fontSize: 12.5, color: C.faint }}>Slides group questions by topic · mark a file as <strong>Assignment</strong> to fold its questions into the results</span></div>}
       <button onClick={() => inputRef.current?.click()} style={{ fontFamily: C.font, fontSize: 13.5, fontWeight: 600, padding: "9px 18px", borderRadius: 10, cursor: "pointer", color: C.ink2, background: C.card, border: `1px solid ${C.line}`, display: "inline-flex", alignItems: "center", gap: 6 }}>
         {has ? <React.Fragment><IconPlus s={14} c={C.ink2} /> Add more</React.Fragment> : "Browse files"}
       </button>
@@ -126,8 +152,10 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
   const ready = papers.length > 0;
   const pageCount = papers.reduce((n, p) => n + p.pages.length, 0) + handouts.length;
 
-  const addHandouts = (fs) => setHandouts((h) => [...h, ...fs]);
-  const removeHandout = (i) => setHandouts((h) => h.filter((_, j) => j !== i));
+  // handouts = [{ id, file, kind: "slide" | "assignment" }]; new files default to slides.
+  const addHandouts = (fs) => setHandouts((h) => [...h, ...fs.map((f) => ({ id: newId(), file: f, kind: "slide" }))]);
+  const removeHandout = (id) => setHandouts((h) => h.filter((x) => x.id !== id));
+  const setHandoutKind = (id, kind) => setHandouts((h) => h.map((x) => (x.id === id ? { ...x, kind } : x)));
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
@@ -156,13 +184,13 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
             </span>))}
         </div>
 
-        <Tip id="landing-slides" title="Tip: add your slides for better results">
-          Drop your course slides (PPTs, as PDF) into the <strong>“Course slides &amp; handouts”</strong> box — we'll group questions under your real syllabus topics instead of guessing.{!auth?.user && auth?.enabled ? <React.Fragment> And <strong>sign in</strong> to unlock the sharper AI grouping.</React.Fragment> : null}
+        <Tip id="landing-slides" title="Tip: add slides & assignments for better results">
+          Drop your course slides (PPTs, as PDF) into the <strong>“Slides &amp; assignments”</strong> box to group questions under your real syllabus topics — and mark a teacher's important-question list as an <strong>Assignment</strong> to fold it into the results and rank those topics higher.{!auth?.user && auth?.enabled ? <React.Fragment> <strong>Sign in</strong> for sharper AI grouping.</React.Fragment> : null}
         </Tip>
 
         <div style={{ display: "flex", gap: 20, width: "100%", marginBottom: 30, alignItems: "flex-start", flexWrap: "wrap" }}>
           <PapersZone papers={papers} setPapers={setPapers} />
-          <HandoutsZone files={handouts} onAdd={addHandouts} onRemove={removeHandout} />
+          <MaterialsZone items={handouts} onAdd={addHandouts} onRemove={removeHandout} onSetKind={setHandoutKind} />
         </div>
 
         <PrimaryButton size="lg" disabled={!ready} glow={ready} onClick={onStart}>

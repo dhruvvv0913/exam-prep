@@ -29,7 +29,7 @@ async function readPage(file, onProgress, aiScan) {
 
 // `aiGroup(items, chapters)` is an optional async grouper (the signed-in LLM
 // path); if it throws we fall back to the in-browser embedding grouping.
-export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup, aiScan } = {}) {
+export async function analyze(paperFiles, { onProgress, slideFiles, assignmentFiles, aiGroup, aiScan } = {}) {
   const items = [];
   const papers = [];
   const skipped = []; // papers we couldn't read or that yielded no questions
@@ -72,6 +72,23 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup, aiS
     // solution-bearing PYQ just works; we never warn or block on it.
 
     onProgress?.({ stage: "extracted", index: i, total: paperFiles.length, questions: items.length });
+  }
+
+  // Assignment questions (optional): teacher-flagged "important question" lists.
+  // Parsed like papers but tagged `assignment: true`, so rank.js MERGES them into
+  // the topic groups, badges them, and boosts their ranking — without counting
+  // them as exams. A bad assignment file is skipped silently (it's supplementary,
+  // so it never triggers the no-partial-result rollback below).
+  let assignmentCount = 0;
+  for (let a = 0; a < (assignmentFiles?.length || 0); a++) {
+    const file = assignmentFiles[a];
+    onProgress?.({ stage: "reading", paper: file?.name || `Assignment ${a + 1}`, index: a, total: assignmentFiles.length });
+    try {
+      const { text } = await readPage(file, onProgress, aiScan);
+      const { questions } = parsePaper(text);
+      for (const q of questions) items.push({ ...q, paperId: "Assignment", year: null, pIdx: 1000 + a, assignment: true });
+      assignmentCount += questions.length;
+    } catch (e) { console.error("assignment file skipped:", file?.name, e); }
   }
 
   if (items.length === 0) {
@@ -153,6 +170,7 @@ export async function analyze(paperFiles, { onProgress, slideFiles, aiGroup, aiS
     groups,
     questionCount: items.length,
     paperCount: paperFiles.length,
+    assignmentCount, // questions merged in from uploaded assignment lists (badged + boosted)
     topicCount,
     skipped, // [{ name, reason }] — papers that were unreadable or had no questions
     aiError, // null, or the reason AI grouping fell back to basic grouping (e.g. "group api 429")

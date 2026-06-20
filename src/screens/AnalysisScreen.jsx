@@ -225,9 +225,10 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
             {unique
               ? <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint }}>asked once · 1 question</span>
               : <React.Fragment>
-                  <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted }}>appears in {cluster.appears} exams · {cluster.variants} questions</span>
+                  <span style={{ fontFamily: C.font, fontSize: 12.5, color: C.muted }}>{cluster.appears >= 2 ? `appears in ${cluster.appears} exams` : cluster.appears === 1 ? "in 1 exam" : "from your assignment"} · {cluster.variants} questions</span>
                   <HeatBar value={cluster.totalMarks} max={max} />
                 </React.Fragment>}
+            {cluster.inAssignment && <Tag tone="gold" title="This topic is in an assignment you uploaded — teachers flag these as important"><IconStar s={11} on c={C.gold} /> In assignment</Tag>}
             {headerChip}
           </div>
         </div>
@@ -247,13 +248,15 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
           {cluster.questions.map((q, i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "11px 13px", background: C.card2, border: `1px solid ${C.lineSoft}`, borderRadius: 11 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                {onOpenSource && q.pIdx != null
-                  ? <LinkChip title="Open this paper in a new tab" onClick={() => onOpenSource(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"} ↗</LinkChip>
-                  : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: C.card2, borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>}
+                {q.assignment
+                  ? <span title="From an assignment you uploaded" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.gold, whiteSpace: "nowrap", padding: "3px 8px", background: C.goldSoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconStar s={10} on c={C.gold} /> Assignment</span>
+                  : onOpenSource && q.pIdx != null
+                    ? <LinkChip title="Open this paper in a new tab" onClick={() => onOpenSource(q.pIdx)}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"} ↗</LinkChip>
+                    : <span title="Source paper" style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: "nowrap", padding: "3px 8px", background: C.card2, borderRadius: 7, flex: "0 0 auto", marginTop: 1, display: "inline-flex", alignItems: "center", gap: 4 }}><IconFile s={10} c={C.muted} /> {q.paperId || q.year || "?"}</span>}
                 <div style={{ flex: 1, minWidth: 0, fontFamily: C.font, fontSize: 13.5, lineHeight: 1.5, color: C.ink2, textWrap: "pretty" }}>{q.text}</div>
                 <span title={MARKS_HINT} style={{ fontFamily: C.font, fontSize: 11, fontWeight: 600, color: C.primary, whiteSpace: "nowrap", padding: "3px 8px", background: C.primarySoft, borderRadius: 7, flex: "0 0 auto", marginTop: 1 }}>{q.marks} {q.marks === 1 ? "mark" : "marks"}</span>
               </div>
-              {onCrop && q.pIdx != null && (
+              {onCrop && q.pIdx != null && !q.assignment && (
                 <div>
                   <LinkChip title="Show the exact question (and any diagram) cropped from the source paper" onClick={() => toggleImg(i)}>
                     <IconFile s={10} c={C.muted} /> {shownImg.has(i) ? "Hide original" : "View original"}

@@ -60,6 +60,7 @@ export function groupsFromClusters(clusters) {
       paperId: it.paperId,
       year: it.year ?? null,
       marks: it.marks ?? 5,
+      assignment: it.assignment ?? false, // from an uploaded assignment list (teacher-flagged), not an exam
     })),
   }));
 }
@@ -82,7 +83,10 @@ function enrichGroup(g) {
   });
   // "appears" = distinct uploaded papers (by pIdx), robust to two papers
   // sharing a session/year label.
-  const papers = new Set(items.map((it) => it.pIdx ?? it.paperId));
+  // "appears" counts distinct EXAMS only — assignment items (teacher-flagged,
+  // not an exam) are excluded so they don't inflate the recurrence count.
+  const papers = new Set(items.filter((it) => !it.assignment).map((it) => it.pIdx ?? it.paperId));
+  const inAssignment = items.some((it) => it.assignment); // this topic is in an uploaded assignment
   const rep = representative(items);
   const marksOf = (it) => (typeof it.marks === "number" ? it.marks : 5);
   const totalMarks = items.reduce((s, it) => s + marksOf(it), 0);
@@ -93,18 +97,20 @@ function enrichGroup(g) {
     totalMarks, // collective marks across all (de-duplicated) questions
     q: rep.text, // representative (kept for back-compat / Node scripts)
     appears: papers.size,
+    inAssignment, // boosted + badged; also keeps a teacher-flagged topic out of "asked once"
     variants: items.length,
     // full list of questions in the group (year-sorted, de-duped), for the card
-    questions: items.map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, pIdx: it.pIdx ?? null, text: it.text, year: it.year ?? null, marks: marksOf(it) })),
+    questions: items.map((it) => ({ src: it.assignment ? "Assignment" : `${it.year ?? "?"} · ${it.paperId}`, paperId: it.paperId, pIdx: it.pIdx ?? null, text: it.text, year: it.year ?? null, marks: marksOf(it), assignment: it.assignment ?? false })),
     similars: items
       .filter((it) => it !== rep)
       .map((it) => ({ src: `${it.year ?? "?"} · ${it.paperId}`, text: it.text })),
-    unique: papers.size < 2,
+    unique: papers.size < 2 && !inAssignment,
   };
 }
 
-// Most exam weight first, then repetition, then count. Shared comparator.
-const byWeight = (a, b) => b.totalMarks - a.totalMarks || b.appears - a.appears || b.variants - a.variants;
+// Most exam weight first, then repetition, then count. Assignment-flagged topics
+// (teacher-emphasised) are boosted to the top. Shared comparator.
+const byWeight = (a, b) => (b.inAssignment - a.inAssignment) || b.totalMarks - a.totalMarks || b.appears - a.appears || b.variants - a.variants;
 
 // Groups -> ranked display data for the analysis screen ("By importance").
 export function summarize(groups) {

@@ -190,7 +190,7 @@ function FeatureTour() {
     </div>);
 }
 
-export default function LoadingScreen({ papers, slides, aiGroup, aiScan, onDone, onError }) {
+export default function LoadingScreen({ papers, slides, assignments, aiGroup, aiScan, onDone, onError }) {
   const hasSlides = !!(slides && slides.length);
   // With slides we group AGAINST their topics, so the steps differ.
   const stepDefs = hasSlides
@@ -223,6 +223,7 @@ export default function LoadingScreen({ papers, slides, aiGroup, aiScan, onDone,
 
     analyze(papers, {
       slideFiles: hasSlides ? slides : undefined,
+      assignmentFiles: assignments && assignments.length ? assignments : undefined,
       aiGroup,
       aiScan,
       onProgress: (p) => {

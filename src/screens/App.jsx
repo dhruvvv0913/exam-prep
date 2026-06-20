@@ -136,6 +136,11 @@ export default function App() {
   // saved/curated subject rather than a fresh upload.
   const fromUpload = progressKey === "upload";
   const fromLibrary = !fromUpload;
+  // Optional course materials live in ONE list (`handouts` = [{ id, file, kind }]),
+  // each marked "slide" (default — grouped by its topics) or "assignment"
+  // (teacher's important questions — merged into the results + boosted).
+  const slideFiles = handouts.filter((h) => h.kind !== "assignment").map((h) => h.file);
+  const assignmentFiles = handouts.filter((h) => h.kind === "assignment").map((h) => h.file);
   const home = () => { setScanError(null); setScreen("landing"); };
   const browse = () => setScreen("library");
   const reupload = () => { setPapers([]); setHandouts([]); setScanError(null); setScreen("landing"); };
@@ -197,10 +202,10 @@ export default function App() {
           {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} scanError={scanError} onClearError={() => setScanError(null)} />}
           {screen === "library" && <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />}
           {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />)}
-          {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={handouts} aiGroup={auth.user && useAi ? groupViaApi : undefined} aiScan={auth.user && useAi ? scanViaApi : undefined} onDone={onDone} onError={onScanError} />}
+          {screen === "loading" && <LoadingScreen papers={papers.map((p) => p.pages)} slides={slideFiles} assignments={assignmentFiles} aiGroup={auth.user && useAi ? groupViaApi : undefined} aiScan={auth.user && useAi ? scanViaApi : undefined} onDone={onDone} onError={onScanError} />}
           {screen === "analysis" && (result
             ? <AnalysisScreen data={result} onGroupsChange={onGroupsChange} canSave={auth.isAdmin && fromUpload} canSaveMine={!!auth.user && fromUpload} fromLibrary={fromLibrary}
-                sources={fromUpload ? { papers, slides: handouts } : (result?.files || null)}
+                sources={fromUpload ? { papers, slides: slideFiles } : (result?.files || null)}
                 onNotify={setNotice}
                 done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
             : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
