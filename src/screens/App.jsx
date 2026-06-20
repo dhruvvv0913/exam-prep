@@ -43,7 +43,7 @@ function Account({ auth }) {
       {isMobile
         ? (auth.isAdmin ? <span title={label} style={{ color: C.gold, fontSize: 15 }}>★</span> : null)
         : <span title={label + (auth.isAdmin ? " (admin)" : "")} style={{ fontFamily: C.font, fontSize: 13, color: C.ink2, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auth.isAdmin ? "★ " : ""}{label}</span>}
-      <button onClick={auth.signOut} title="Sign out" style={{ fontFamily: C.font, fontSize: 13, fontWeight: 500, padding: "6px 12px", borderRadius: 9, border: `1px solid ${C.line}`, background: "#fff", color: C.ink2, cursor: "pointer" }}>Sign out</button>
+      <button onClick={auth.signOut} title="Sign out" style={{ fontFamily: C.font, fontSize: 13, fontWeight: 500, padding: "6px 12px", borderRadius: 9, border: `1px solid ${C.line}`, background: C.card2, color: C.ink2, cursor: "pointer" }}>Sign out</button>
     </div>);
 }
 
@@ -52,9 +52,9 @@ function AuroraBg() {
   const blob = (s) => <div style={{ position: "absolute", borderRadius: "50%", filter: "blur(64px)", ...s }} />;
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
-      {blob({ width: 440, height: 440, top: -140, left: -90, background: "radial-gradient(circle, rgba(99,110,240,0.40), transparent 70%)", animation: "aurora1 19s ease-in-out infinite" })}
-      {blob({ width: 400, height: 400, top: -70, right: -110, background: "radial-gradient(circle, rgba(138,108,224,0.36), transparent 70%)", animation: "aurora2 23s ease-in-out infinite" })}
-      {blob({ width: 380, height: 380, bottom: -160, left: "32%", background: "radial-gradient(circle, rgba(91,108,240,0.28), transparent 70%)", animation: "aurora3 27s ease-in-out infinite" })}
+      {blob({ width: 480, height: 480, top: -150, left: -100, background: "radial-gradient(circle, rgba(110,123,247,0.26), transparent 70%)", animation: "aurora1 19s ease-in-out infinite" })}
+      {blob({ width: 440, height: 440, top: -80, right: -120, background: "radial-gradient(circle, rgba(167,139,250,0.22), transparent 70%)", animation: "aurora2 23s ease-in-out infinite" })}
+      {blob({ width: 420, height: 420, bottom: -180, left: "32%", background: "radial-gradient(circle, rgba(91,108,240,0.18), transparent 70%)", animation: "aurora3 27s ease-in-out infinite" })}
     </div>);
 }
 
@@ -64,7 +64,7 @@ function AuroraBg() {
 function TopBar({ screen, summary, fromLibrary, auth, onHome, onReupload, onBrowse, onAdmin }) {
   const isMobile = useIsMobile();
   return (
-    <div style={{ flex: "0 0 auto", height: 66, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 32px", borderBottom: `1px solid ${C.line}`, background: "rgba(255,255,255,0.78)", backdropFilter: "blur(10px)", zIndex: 10 }}>
+    <div style={{ flex: "0 0 auto", height: 66, display: "flex", alignItems: "center", justifyContent: "space-between", padding: isMobile ? "0 16px" : "0 32px", borderBottom: `1px solid ${C.line}`, background: "rgba(13,15,22,0.72)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", zIndex: 10 }}>
       <Logo onClick={onHome} />
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         {screen === "analysis"
@@ -78,7 +78,7 @@ function TopBar({ screen, summary, fromLibrary, auth, onHome, onReupload, onBrow
               {screen !== "library" && <span onClick={onBrowse} style={{ fontFamily: C.font, fontSize: 14, fontWeight: 500, color: C.ink2, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}><IconLayers s={15} c={C.ink2} /> Subjects</span>}
               {auth.isAdmin && screen !== "admin" && <span onClick={onAdmin} style={{ fontFamily: C.font, fontSize: 14, fontWeight: 600, color: C.primary, cursor: "pointer" }}>Admin</span>}
               {!isMobile && !auth.enabled && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 13px", border: `1px solid ${C.line}`, borderRadius: 999, background: "#fff", fontFamily: C.font, fontSize: 12.5, fontWeight: 500, color: C.muted }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 13px", border: `1px solid ${C.line}`, borderRadius: 999, background: C.card2, fontFamily: C.font, fontSize: 12.5, fontWeight: 500, color: C.muted }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.good }} /> Free · runs in your browser
                 </span>)}
             </React.Fragment>}
@@ -207,7 +207,7 @@ export default function App() {
         </React.Suspense>
       </div>
       {notice && (
-        <div onClick={() => setNotice(null)} role="status" style={{ position: "fixed", bottom: 22, left: "50%", transform: "translateX(-50%)", zIndex: 60, maxWidth: "90vw", background: C.ink, color: "#fff", padding: "11px 16px", borderRadius: 12, fontFamily: C.font, fontSize: 13.5, fontWeight: 500, boxShadow: C.shadowLg, cursor: "pointer" }}>{notice}</div>
+        <div onClick={() => setNotice(null)} role="status" style={{ position: "fixed", bottom: 22, left: "50%", transform: "translateX(-50%)", zIndex: 60, maxWidth: "90vw", background: "#23262f", color: C.ink, border: `1px solid ${C.line}`, padding: "11px 16px", borderRadius: 12, fontFamily: C.font, fontSize: 13.5, fontWeight: 500, boxShadow: C.shadowLg, cursor: "pointer" }}>{notice}</div>
       )}
     </div>);
 }

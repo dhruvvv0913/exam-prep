@@ -9,14 +9,14 @@ import { useIsMobile } from "../useIsMobile.js";
 import { analyze } from "../engine/pipeline.js";
 
 function ScanDoc() {
-  const card = (extra) => ({ position: "absolute", width: 112, height: 138, borderRadius: 14, background: "#fff", border: `1px solid ${C.line}`, boxShadow: C.shadowMd, ...extra });
+  const card = (extra) => ({ position: "absolute", width: 112, height: 138, borderRadius: 14, background: C.card, border: `1px solid ${C.line}`, boxShadow: C.shadowMd, ...extra });
   return (
     <div style={{ position: "relative", width: 170, height: 162 }}>
       <div style={card({ left: 14, top: 18, transform: "rotate(-8deg)", opacity: 0.5 })} />
       <div style={card({ left: 40, top: 12, transform: "rotate(6deg)", opacity: 0.8 })} />
       <div style={{ ...card({ left: 28, top: 14 }), overflow: "hidden", display: "flex", flexDirection: "column", gap: 8, padding: 16 }}>
         <div style={{ width: "55%", height: 8, background: C.primary, borderRadius: 5 }} />
-        {[1, 0.9, 1, 0.6].map((w, i) => <div key={i} style={{ width: `${w * 100}%`, height: 6, background: "#e6e8f2", borderRadius: 5 }} />)}
+        {[1, 0.9, 1, 0.6].map((w, i) => <div key={i} style={{ width: `${w * 100}%`, height: 6, background: C.track, borderRadius: 5 }} />)}
         <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 3, background: `linear-gradient(90deg, transparent, ${C.primary}, transparent)`, boxShadow: `0 0 14px ${C.primary}`, animation: "scan 2s ease-in-out infinite" }} />
       </div>
     </div>);
@@ -25,7 +25,7 @@ function ScanDoc() {
 function StepIcon({ state }) {
   if (state === "done") return <div style={{ width: 24, height: 24, borderRadius: "50%", background: C.good, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><IconCheck s={13} sw={2.6} /></div>;
   if (state === "active") return <div className="pyq-spin" style={{ width: 24, height: 24, borderRadius: "50%", border: `3px solid ${hexA(C.primary, 0.22)}`, borderTopColor: C.primary, flex: "0 0 auto" }} />;
-  return <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid #d3d6e6`, flex: "0 0 auto" }} />;
+  return <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${C.line2}`, flex: "0 0 auto" }} />;
 }
 
 // ---- feature-tour illustrations (pure CSS/SVG, replay on slide change) ------
@@ -36,7 +36,7 @@ function RankViz() {
       <div style={{ width: 24, height: 24, flex: "0 0 auto", borderRadius: "50%", background: rank === 1 ? C.grad : C.primarySoft, color: rank === 1 ? "#fff" : C.primary, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: C.font, fontWeight: 700, fontSize: 12, boxShadow: rank === 1 ? C.gradGlow : "none" }}>{rank}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: C.font, fontSize: 11.5, fontWeight: 600, color: C.ink2, marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{topic}</div>
-        <div style={{ height: 6, borderRadius: 999, background: "#eef0f8", overflow: "hidden" }}>
+        <div style={{ height: 6, borderRadius: 999, background: C.track, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${w}%`, background: `linear-gradient(90deg, ${C.primary}, ${C.violet})`, borderRadius: 999, transformOrigin: "left", animation: `growx .9s ${delay + 0.25}s both cubic-bezier(.4,0,.2,1)` }} />
         </div>
       </div>
@@ -53,7 +53,7 @@ function RankViz() {
 
 function ViewsViz() {
   const chip = (t, delay) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 11px", background: "#fbfbfe", border: `1px solid ${C.lineSoft}`, borderRadius: 10, animation: `tourin .5s ${delay}s both` }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 11px", background: C.card2, border: `1px solid ${C.lineSoft}`, borderRadius: 10, animation: `tourin .5s ${delay}s both` }}>
       <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.violet, flex: "0 0 auto" }} />
       <div style={{ fontFamily: C.font, fontSize: 11.5, color: C.ink2 }}>{t}</div>
     </div>
@@ -80,11 +80,11 @@ function ViewsViz() {
 function OriginalViz() {
   return (
     <div style={{ position: "relative", width: "100%", maxWidth: 280, height: 116, margin: "0 auto" }}>
-      <div style={{ position: "absolute", inset: 0, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, animation: "fadeout .6s 2s both" }}>
-        <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, color: "#b04a4a", lineHeight: 1.7 }}>Wh@t i$ th3 h!t r@ti0 0f<br />th3 c@ch3 m3m0ry 1f th3...</div>
+      <div style={{ position: "absolute", inset: 0, background: C.card, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, animation: "fadeout .6s 2s both" }}>
+        <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, color: C.danger, lineHeight: 1.7 }}>Wh@t i$ th3 h!t r@ti0 0f<br />th3 c@ch3 m3m0ry 1f th3...</div>
         <div style={{ fontFamily: C.font, fontSize: 10.5, color: C.faint, marginTop: 10 }}>garbled scanned text</div>
       </div>
-      <div style={{ position: "absolute", inset: 0, background: "#fff", border: `1px solid ${hexA(C.primary, 0.4)}`, borderRadius: 12, padding: 14, opacity: 0, animation: "tourin .55s 2.15s both", boxShadow: C.shadowMd }}>
+      <div style={{ position: "absolute", inset: 0, background: C.card, border: `1px solid ${hexA(C.primary, 0.4)}`, borderRadius: 12, padding: 14, opacity: 0, animation: "tourin .55s 2.15s both", boxShadow: C.shadowMd }}>
         <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 12.5, color: C.ink, lineHeight: 1.55 }}>What is the hit ratio of the cache memory if the access time is 5 ns…</div>
         <div style={{ marginTop: 10, display: "flex", gap: 6, alignItems: "center" }}>
           <div style={{ width: 28, height: 18, border: `1.5px solid ${C.primary}`, borderRadius: 3 }} />
@@ -108,11 +108,11 @@ function ProgressViz() {
         <span style={{ fontFamily: C.font, fontSize: 12, fontWeight: 600, color: C.ink2 }}>Studied 58%</span>
         <span style={{ fontFamily: C.font, fontSize: 11.5, color: C.faint }}>7 of 12 topics</span>
       </div>
-      <div style={{ height: 8, borderRadius: 999, background: "#e3e5f1", overflow: "hidden" }}>
+      <div style={{ height: 8, borderRadius: 999, background: C.track, overflow: "hidden" }}>
         <div style={{ height: "100%", width: "58%", background: `linear-gradient(90deg, ${C.good}, #43c08a)`, borderRadius: 999, transformOrigin: "left", animation: "growx 1.1s .2s both cubic-bezier(.4,0,.2,1)" }} />
       </div>
       <div style={{ display: "flex", gap: 9 }}>
-        {tile("#fbfbfe", C.lineSoft, 0.8, <IconStar s={15} on c={C.gold} />, "Starred", C.muted)}
+        {tile(C.card2, C.lineSoft, 0.8, <IconStar s={15} on c={C.gold} />, "Starred", C.muted)}
         {tile(C.goodSoft, hexA(C.good, 0.25), 1.1, <span style={{ width: 16, height: 16, borderRadius: "50%", background: C.good, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><IconCheck s={10} sw={3} /></span>, "Done", C.good)}
       </div>
     </div>);
@@ -121,7 +121,7 @@ function ProgressViz() {
 function SheetViz() {
   return (
     <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: 152, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "13px 14px 15px", boxShadow: C.shadowMd, animation: "floaty 3s ease-in-out infinite" }}>
+      <div style={{ width: 152, background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: "13px 14px 15px", boxShadow: C.shadowMd, animation: "floaty 3s ease-in-out infinite" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 11 }}>
           <div style={{ width: "45%", height: 8, background: C.primary, borderRadius: 4 }} />
           <span style={{ fontFamily: C.font, fontSize: 9, fontWeight: 700, color: "#fff", background: C.grad, borderRadius: 5, padding: "2px 6px" }}>PDF</span>
@@ -129,7 +129,7 @@ function SheetViz() {
         {[90, 70, 82, 60, 75].map((w, n) => (
           <div key={n} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 7, animation: `tourin .4s ${0.1 + n * 0.1}s both` }}>
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.violet, flex: "0 0 auto" }} />
-            <div style={{ height: 5, width: `${w}%`, background: "#e6e8f2", borderRadius: 4 }} />
+            <div style={{ height: 5, width: `${w}%`, background: C.track, borderRadius: 4 }} />
           </div>
         ))}
       </div>
@@ -156,7 +156,7 @@ function FeatureTour() {
   const Viz = S.V;
   return (
     <div onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
-      style={{ width: "100%", background: "#fff", border: `1px solid ${C.line}`, borderRadius: 18, boxShadow: C.shadowMd, padding: "16px 20px 18px", overflow: "hidden", position: "relative" }}>
+      style={{ width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 18, boxShadow: C.shadowMd, padding: "16px 20px 18px", overflow: "hidden", position: "relative" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: C.grad }} />
       <div style={{ fontFamily: C.font, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: C.primary, marginBottom: 14, display: "flex", alignItems: "center", gap: 7 }}>
         <IconSparkle s={13} c={C.primary} /> While you wait — what you’ll get
@@ -171,7 +171,7 @@ function FeatureTour() {
       <div style={{ display: "flex", gap: 6, marginTop: 14, justifyContent: "center" }}>
         {SLIDES.map((_, n) => (
           <button key={n} onClick={() => setI(n)} aria-label={`Show feature ${n + 1}`}
-            style={{ width: n === i ? 20 : 7, height: 7, borderRadius: 999, border: "none", padding: 0, cursor: "pointer", background: n === i ? C.primary : "#d3d6e6", transition: "width .3s ease, background .3s ease" }} />
+            style={{ width: n === i ? 20 : 7, height: 7, borderRadius: 999, border: "none", padding: 0, cursor: "pointer", background: n === i ? C.primary : C.line2, transition: "width .3s ease, background .3s ease" }} />
         ))}
       </div>
     </div>);
@@ -258,8 +258,8 @@ export default function LoadingScreen({ papers, slides, aiGroup, aiScan, onDone,
 
         <React.Fragment>
             {/* overall progress */}
-            <div style={{ width: "100%", height: 8, borderRadius: 999, background: "#e3e5f1", overflow: "hidden", marginTop: 22, position: "relative" }}>
-              <div style={{ height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${C.primary}, #5b6cdb)`, width: `${pct}%`, transition: "width .6s cubic-bezier(.4,0,.2,1)" }} />
+            <div style={{ width: "100%", height: 8, borderRadius: 999, background: C.track, overflow: "hidden", marginTop: 22, position: "relative" }}>
+              <div style={{ height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${C.primary}, #a78bfa)`, width: `${pct}%`, transition: "width .6s cubic-bezier(.4,0,.2,1)" }} />
             </div>
 
             {/* the feature tour — the focal point while waiting */}

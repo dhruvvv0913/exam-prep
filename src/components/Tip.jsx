@@ -15,7 +15,7 @@ export default function Tip({ id, title, children }) {
   if (!show) return null;
   const dismiss = () => { markTipSeen(id); setShow(false); };
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: "#fff", border: `1px solid ${hexA(C.primary, 0.3)}`, borderRadius: 14, padding: "13px 15px", boxShadow: C.shadowSm, marginBottom: 18, animation: "rise .4s ease backwards", width: "100%", boxSizing: "border-box" }}>
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 12, background: C.card, border: `1px solid ${hexA(C.primary, 0.3)}`, borderRadius: 14, padding: "13px 15px", boxShadow: C.shadowSm, marginBottom: 18, animation: "rise .4s ease backwards", width: "100%", boxSizing: "border-box" }}>
       <div style={{ width: 32, height: 32, flex: "0 0 auto", borderRadius: 9, background: C.grad, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: C.gradGlow }}>
         <IconSparkle s={16} c="#fff" />
       </div>
