@@ -72,11 +72,13 @@ export async function extractText(data, { onOcrProgress, aiScan, onAiScan } = {}
   const ocrWins = ocrQ > tlQ || (ocrQ === tlQ && ocrRatio >= tlA.ratio);
   const best = ocrWins ? { text: ocrText, method: "ocr", q: ocrQ } : { text, method: "text", q: tlQ };
 
-  // Last resort: if even the best local read is under-parsed (a bad scan) and an
-  // AI vision scan is available (signed-in), transcribe the page IMAGES with the
-  // model and keep it if it recovers more questions. Falls back silently on any
-  // failure / quota, so it never blocks the local result.
-  if (aiScan && best.q < MIN_QUESTIONS) {
+  // Signed-in users (aiScan provided) get the VISION read whenever the paper was
+  // SCANNED (OCR path) or under-parsed — scans are where local OCR drops/garbles
+  // questions, and the model reads them reliably. "Keep whichever finds more
+  // questions" means it can only improve the result, never worsen it; falls back
+  // silently on any failure / quota. (Born-digital papers with a clean text layer
+  // returned above and never reach here, so they skip it.)
+  if (aiScan && (best.method === "ocr" || best.q < MIN_QUESTIONS)) {
     try {
       onAiScan?.();
       const aiText = await aiScan(await renderPageImages(doc));
