@@ -105,3 +105,35 @@ test("topicLabel weights acronyms over generic words", () => {
   ]);
   assert.match(label, /WTO/);
 });
+
+test("assignment items: flagged, excluded from exam count, boosted, not 'asked once'", () => {
+  const groups = groupsFromClusters([
+    { topic: "Assigned topic", items: [
+      { id: "q1", pIdx: 0, text: "Explain X with a diagram", marks: 5, paperId: "2024" },
+      { id: "q1", pIdx: 1000, text: "Explain X (assignment wording)", marks: 5, paperId: "Assignment", assignment: true },
+    ] },
+    { topic: "Repeated topic", items: [
+      { id: "q2", pIdx: 0, text: "Define Y", marks: 5, paperId: "2024" },
+      { id: "q2", pIdx: 1, text: "Define Y", marks: 5, paperId: "2023" },
+      { id: "q2", pIdx: 2, text: "Define Y", marks: 5, paperId: "2022" },
+    ] },
+  ]);
+  const { ranked } = summarize(groups);
+  const a = ranked.find((g) => g.topic === "Assigned topic");
+  const b = ranked.find((g) => g.topic === "Repeated topic");
+  assert.equal(a.inAssignment, true);
+  assert.equal(a.appears, 1);                       // assignment item NOT counted as an exam
+  assert.equal(a.unique, false);
+  assert.equal(b.inAssignment, false);
+  assert.ok(ranked.indexOf(a) < ranked.indexOf(b), "assignment topic should rank above the heavier non-assignment one");
+});
+
+test("an assignment-only topic is ranked, not 'asked once'", () => {
+  const { ranked, unique } = summarize(groupsFromClusters([
+    { topic: "Only assigned", items: [{ id: "q1", pIdx: 1000, text: "Z important", marks: 5, paperId: "Assignment", assignment: true }] },
+  ]));
+  assert.equal(unique.length, 0);
+  assert.equal(ranked.length, 1);
+  assert.equal(ranked[0].inAssignment, true);
+  assert.equal(ranked[0].appears, 0);
+});
