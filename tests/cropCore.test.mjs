@@ -1,7 +1,7 @@
 // Tests for the pure "View original" crop matching/bounds (cropCore.js).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { startScore, findRegion, MARK, wordsOf } from "../src/engine/cropCore.js";
+import { startScore, findRegion, MARK, wordsOf, within1, pageCoverage } from "../src/engine/cropCore.js";
 
 test("startScore counts the leading-word run, ignoring the marker token", () => {
   const qw = wordsOf("What is the hit ratio of the cache");
@@ -60,6 +60,58 @@ test("findRegion picks the best-scoring line across pages", () => {
   ];
   const r = findRegion(pages, "cache mapping techniques compared in detail");
   assert.equal(r.pageIndex, 1); // longer consecutive run wins
+});
+
+test("within1 allows one OCR slip on longer words only", () => {
+  assert.ok(within1("augmented", "augmentod")); // substitution
+  assert.ok(within1("reality", "realiy"));       // deletion
+  assert.ok(within1("implementing", "implementng"));
+  assert.ok(!within1("cache", "catch"));          // 2 edits
+  assert.ok(!within1("to", "t5"));                // too short to fuzz
+  assert.ok(within1("modes", "modes"));           // identical
+});
+
+test("pageCoverage counts fuzzy content-word hits anywhere on the page", () => {
+  const lines = [
+    { text: "augmentod realiy maintenance", topFrac: 0.2 },
+    { text: "oparations and challengos", topFrac: 0.4 },
+  ];
+  const q = ["augmented", "reality", "maintenance", "operations", "challenges", "systems"];
+  assert.equal(pageCoverage(lines, q), 5); // all but "systems", despite OCR garble
+});
+
+test("findRegion falls back to the whole page when no strip matches but the page carries the question", () => {
+  const pages = [
+    { lines: [{ text: "Some unrelated intro about other topics", topFrac: 0.1 }] },
+    { lines: [
+      { text: "modes of augmented reality in maintenance", topFrac: 0.2 }, // words present, not a clean leading run
+      { text: "operations and the challenges of implementing it", topFrac: 0.5 },
+    ] },
+  ];
+  const q = "How can augmented reality assist in maintenance operations, explain the challenges of implementing it";
+  const r = findRegion(pages, q);
+  assert.ok(r, "should not hard-fail");
+  assert.equal(r.pageIndex, 1);       // the page that actually holds the question
+  assert.equal(r.topFrac, 0);
+  assert.equal(r.botFrac, 1);         // whole page
+  assert.equal(r.approximate, true);
+});
+
+test("findRegion tolerates OCR garble in the fallback", () => {
+  const pages = [{ lines: [
+    { text: "augmentod realiy maintenance oparations challengos implementng", topFrac: 0.2 },
+  ] }];
+  const r = findRegion(pages, "augmented reality maintenance operations challenges implementing systems");
+  assert.ok(r && r.approximate, "fuzzy words should still locate the page");
+});
+
+test("a precise strip match is not flagged approximate", () => {
+  const pages = [{ lines: [
+    { text: "(a) Explain direct mapping in cache", topFrac: 0.2 },
+    { text: "(b) next part here", topFrac: 0.4 },
+  ] }];
+  const r = findRegion(pages, "Explain direct mapping in cache memory");
+  assert.ok(r && !r.approximate);
 });
 
 test("MARK matches both numbering styles", () => {

@@ -179,15 +179,19 @@ function QuestionImage({ crop }) {
   React.useEffect(() => {
     let alive = true;
     Promise.resolve().then(crop)
-      .then((url) => { if (alive) setS({ url }); })
+      .then((res) => { if (alive) setS(res && res.url ? { url: res.url, approximate: res.approximate } : { error: true }); })
       .catch((e) => { console.error("crop failed", e); if (alive) setS({ error: true }); });
     return () => { alive = false; };
   }, []); // mount-once: the closure captures this question's crop
   const note = { marginTop: 2, fontFamily: C.font, fontSize: 12.5, color: C.faint };
   if (s.loading) return <div style={note}>Rendering the original…</div>;
   if (s.error || !s.url) return <div style={note}>Couldn’t locate this question in the source file.</div>;
-  return <img src={s.url} alt="Original question, cropped from the source paper"
-    style={{ marginTop: 2, maxWidth: "100%", borderRadius: 8, border: `1px solid ${C.line}`, background: C.card, display: "block" }} />;
+  return (
+    <div>
+      <img src={s.url} alt="Original question, cropped from the source paper"
+        style={{ marginTop: 2, maxWidth: "100%", borderRadius: 8, border: `1px solid ${C.line}`, background: C.card, display: "block" }} />
+      {s.approximate && <div style={note}>Couldn’t pinpoint the exact question — showing the full source page.</div>}
+    </div>);
 }
 
 // ---- one group card: topic header + collapsible question list -----------
