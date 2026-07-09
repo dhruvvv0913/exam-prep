@@ -106,7 +106,9 @@ function pagesOf(pages) {
 }
 
 // Crop the strip for `questionText` out of `pages` (a paper's File[]). Returns
-// an object-URL for a PNG, or null if the question couldn't be located. Cached.
+// { url, approximate } — an object-URL for a PNG and whether it's the whole-page
+// fallback (couldn't pinpoint the exact strip) — or null if it couldn't be
+// located at all. Cached.
 export async function getQuestionCrop(pages, questionText) {
   if (!pages || !pages.length || !questionText) return null;
   let map = _cropCache.get(pages);
@@ -115,9 +117,9 @@ export async function getQuestionCrop(pages, questionText) {
 
   const job = (async () => {
     const entries = await pagesOf(pages);
-    const region = findRegion(entries, questionText); // pure: { pageIndex, topFrac, botFrac } | null
+    const region = findRegion(entries, questionText); // pure: { pageIndex, topFrac, botFrac, approximate? } | null
     if (!region) return null;
-    const { pageIndex, topFrac, botFrac } = region;
+    const { pageIndex, topFrac, botFrac, approximate } = region;
 
     const canvas = await entries[pageIndex].render(CROP_SCALE);
     const W = canvas.width, H = canvas.height;
@@ -127,7 +129,8 @@ export async function getQuestionCrop(pages, questionText) {
     const crop = document.createElement("canvas");
     crop.width = W; crop.height = ch;
     crop.getContext("2d").drawImage(canvas, 0, y0, W, ch, 0, 0, W, ch);
-    return await new Promise((res) => crop.toBlob((b) => res(b ? URL.createObjectURL(b) : null), "image/png"));
+    const url = await new Promise((res) => crop.toBlob((b) => res(b ? URL.createObjectURL(b) : null), "image/png"));
+    return url ? { url, approximate: !!approximate } : null;
   })();
 
   map.set(questionText, job);
