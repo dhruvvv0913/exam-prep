@@ -76,17 +76,21 @@ export async function extractText(data, { onOcrProgress, aiScan, onAiScan, name 
   // Recover with high-res OCR, then keep whichever yields more questions.
   const ocrText = await ocrDocument(doc, { onProgress: onOcrProgress });
   const ocrQ = splitQuestions(ocrText).length;
-  const ocrRatio = assessText(ocrText).ratio;
-  const ocrWins = ocrQ > tlQ || (ocrQ === tlQ && ocrRatio >= tlA.ratio);
-  const best = ocrWins ? { text: ocrText, method: "ocr", q: ocrQ } : { text, method: "text", q: tlQ };
+  const ocrA = assessText(ocrText);
+  const ocrWins = ocrQ > tlQ || (ocrQ === tlQ && ocrA.ratio >= tlA.ratio);
+  const best = ocrWins
+    ? { text: ocrText, method: "ocr", q: ocrQ, usable: ocrA.usable }
+    : { text, method: "text", q: tlQ, usable: tlA.usable };
 
   // Signed-in users (aiScan provided) get the VISION read whenever the paper was
-  // SCANNED (OCR path) or under-parsed — scans are where local OCR drops/garbles
-  // questions, and the model reads them reliably. "Keep whichever finds more
-  // questions" means it can only improve the result, never worsen it; falls back
-  // silently on any failure / quota. (Born-digital papers with a clean text layer
-  // returned above and never reach here, so they skip it.)
-  if (aiScan && (best.method === "ocr" || best.q < MIN_QUESTIONS)) {
+  // SCANNED (OCR path), under-parsed, OR the winning read is still garbled
+  // (unusable word-ratio — a junk text layer can "win" the OCR comparison with
+  // enough phantom question markers yet contain no real prose; without the
+  // usable check such papers skipped their AI rescue). "Keep whichever finds
+  // more questions" means it can only improve the result, never worsen it;
+  // falls back silently on any failure / quota. (Born-digital papers with a
+  // clean text layer returned above and never reach here, so they skip it.)
+  if (aiScan && (best.method === "ocr" || best.q < MIN_QUESTIONS || !best.usable)) {
     try {
       onAiScan?.();
       const aiText = await aiScan(await renderPageImages(doc));
