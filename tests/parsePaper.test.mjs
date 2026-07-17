@@ -241,3 +241,142 @@ b) Write a routine for the PUSH and POP stack operations clearly.`;
   assert.ok(!qs.some((q) => /do as directed|write short answers/i.test(q.text)), "directive stem not dropped");
   for (const q of qs.filter((q) => q.num === "1")) assert.equal(q.marks, 1, `Q1 part should be 1 mark: ${q.id}`);
 });
+
+// ---- numbered answer-list / sub-task-list guard (solved papers) ----------
+
+test("numbered ANSWER list in a solved paper does not create phantom questions", () => {
+  // Modelled on the OS Feb-2026 model-answer paper: Q1(e) asks about the PCB,
+  // then "Ans." + a numbered list of PCB fields ("1. Process ID", ...) which
+  // used to parse as phantom questions q1_, q2, q3...
+  const paper = `MID SEMESTER EXAMINATION 2026
+Operating Systems
+1. Answer all the questions. [1 Mark X 5]
+(a) What do the burst times of these processes indicate exactly?
+(b) What must the time quantum be for round robin here?
+(c) Give an example of a voluntary context switch scenario.
+(d) How does a system call differ from a function call?
+(e) Explain the working procedure of the process control block.
+Ans.
+The PCB stores the following information about a process.
+1. Process ID
+When a process is created, a unique id is assigned to the process.
+2. Program counter
+A program counter is a register that stores the next instruction address.
+3. Process State
+The process moves through several states during its lifetime.
+4. Priority
+Every process has its own priority level assigned.
+5. General Purpose Registers
+Every process has its own set of register contents saved.
+2. (a) Consider a system with semaphores and describe its behaviour fully.
+(b) Using semaphores, design a solution for a traffic signal controller.`;
+  const qs = splitQuestions(paper);
+  const ids = qs.map((q) => q.id);
+  assert.deepEqual(ids, ["q1a", "q1b", "q1c", "q1d", "q1e", "q2a", "q2b"], `phantom questions: ${ids}`);
+  // and the answer content itself was stripped from q1e (Ans. separator)
+  const q1e = qs.find((q) => q.id === "q1e");
+  assert.ok(!/process id|program counter/i.test(q1e.text), `answer leaked into q1e: ${q1e.text}`);
+});
+
+test("numbered SUB-TASK list inside a question stays attached (no phantom questions)", () => {
+  // Modelled on the OOPJ Feb-2026 paper: Q4(a) describes a system then lists
+  // numbered requirements 1..4 — they are part of Q4(a), not new questions.
+  const paper = `MID SEMESTER EXAMINATION 2026
+Object Oriented Programming
+1. Answer all the questions briefly. [1 Mark X 5]
+(a) What is multiple inheritance and how does an interface support it?
+(b) What will be the output of the following code segment exactly?
+(c) What is the output of this code snippet, explain briefly?
+2. (a) Write a program to receive five integers from the user cleanly.
+(b) Define a class to implement a stack data structure in Java.
+3. (a) Define a class Player with name, gender and age as data members.
+(b) Create a user-defined package named college with a class inside.
+4. (a) A university wants to design a Digital Evaluation System where different assessments are evaluated.
+1. Analyze why an interface-based design is appropriate for this system.
+2. Design an interface Evaluation with a method calculateScore.
+3. Implement the interface in the three classes mentioned above.
+4. Demonstrate runtime polymorphism using an interface reference.
+(b) While writing a program when does it become mandatory to use a default method?`;
+  const qs = splitQuestions(paper);
+  const ids = qs.map((q) => q.id);
+  assert.deepEqual(ids, ["q1a", "q1b", "q1c", "q2a", "q2b", "q3a", "q3b", "q4a", "q4b"], `phantom questions: ${ids}`);
+  const q4a = qs.find((q) => q.id === "q4a");
+  assert.ok(/interface-based design/i.test(q4a.text), `sub-tasks lost from q4a: ${q4a.text}`);
+});
+
+test("an answer list marching PAST the current question number stays rejected", () => {
+  // Modelled on the EOD Feb-2026 answer scheme: under Q3(a), a list runs
+  // 1..5 — items 4 and 5 exceed the current question number 3 and used to
+  // become phantom q4/q5.
+  const paper = `MID SEMESTER EXAMINATION 2026
+Economics of Development
+1. Define economic growth in one or two clear sentences.
+2. Explain the Lorenz curve and its meaning in detail.
+3. (a) Division of labour increases economic development in several ways as follows:
+1. Increasing productivity
+2. Saving time
+3. Improving skills of workers
+4. Encouraging technological innovation
+5. Expanding markets
+(b) The Invisible Hand means individuals pursuing their self-interest promote welfare.
+4. Explain the difference between growth and development fully.`;
+  const qs = splitQuestions(paper);
+  const ids = qs.map((q) => q.id);
+  assert.deepEqual(ids, ["q1", "q2", "q3a", "q3b", "q4"], `phantom questions: ${ids}`);
+  const q4 = qs.find((q) => q.id === "q4");
+  assert.ok(/growth and development/i.test(q4.text), `wrong q4: ${q4.text}`);
+});
+
+test("an absurd number jump ('33.33%' OCR'd as a question number) is content, not a question", () => {
+  const paper = `MID SEMESTER EXAMINATION 2026
+Economics of Development
+1. Define national income properly with an example.
+2. Explain income distribution among the population groups here.
+33.33% of the income goes to the top decile in this example table.
+3. Describe the Gini coefficient and what it measures exactly.`;
+  const qs = splitQuestions(paper);
+  const ids = qs.map((q) => q.id);
+  assert.deepEqual(ids, ["q1", "q2", "q3"], `junk number became a question: ${ids}`);
+});
+
+test("SECTION headers allow legitimate per-section renumbering", () => {
+  const paper = `END SEMESTER EXAMINATION 2025
+Subject Title Here
+SECTION-A
+1. Define cache memory and its purpose clearly.
+2. Explain virtual memory translation in detail.
+SECTION-B
+1. Describe pipelining hazards with clear examples.
+2. Compare RISC and CISC architectures in detail.`;
+  const qs = splitQuestions(paper);
+  assert.equal(qs.length, 4, `section renumbering broken: ${qs.map((q) => q.id)}`);
+  assert.ok(qs.some((q) => /pipelining hazards/i.test(q.text)), "Section B Q1 lost");
+});
+
+test("assessSolutionSheet flags an explicit 'Answer Scheme' header", () => {
+  const r = assessSolutionSheet("SPRING MID SEMESTER EXAMINATION-2026\nEconomics of Development\nAnswer Scheme\n1. Something here.", 3);
+  assert.equal(r.isSolution, true);
+  assert.equal(r.explicit, true);
+});
+
+test("the marks-note 'answer to each question carries 1 mark' is noise, not a question", () => {
+  const qs = splitQuestions("1. Appropriate answer to each question carries 1 mark. [ 1 Mark X 5 ]\n2. Define elasticity of demand with an example.");
+  assert.ok(!qs.some((q) => /carries 1 mark/i.test(q.text)), qs.map((q) => q.text).join(" | "));
+});
+
+test("a content-free 'Write short notes on any two' stem is dropped; one WITH topics is kept", () => {
+  const qs = splitQuestions(`1. Define cache memory and its purpose clearly.
+2. Write short notes on any two of the following
+3. Write short notes on any two.
+4. Write short notes on any two among the followings: Outer join in relational algebra, Views, Triggers.`);
+  const texts = qs.map((q) => q.text);
+  assert.ok(!texts.some((t) => /^write short notes on any two\.?$/i.test(t)), `stub kept: ${texts}`);
+  assert.ok(!texts.some((t) => /any two of the following$/i.test(t)), `stub kept: ${texts}`);
+  assert.ok(texts.some((t) => /outer join/i.test(t)), `real short-notes question lost: ${texts}`);
+});
+
+test("a directive stem with leading OCR junk (curly quote) is still dropped", () => {
+  const qs = splitQuestions("1. ‘Write short answers or do as directed.\na) Define cache memory and its purpose clearly.\nb) Explain virtual memory translation in detail.");
+  assert.ok(!qs.some((q) => /do as directed/i.test(q.text)), qs.map((q) => q.text).join(" | "));
+  assert.ok(qs.some((q) => /cache memory/i.test(q.text)), "parts lost");
+});

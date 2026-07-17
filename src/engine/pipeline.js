@@ -20,6 +20,7 @@ async function readPage(file, onProgress, aiScan) {
       onOcrProgress: (done, total) => onProgress?.({ stage: "ocr", paper: file.name, done, total }),
       aiScan, // signed-in last resort for papers our OCR can't read; undefined for slides
       onAiScan: () => onProgress?.({ stage: "ai-scan", paper: file.name }),
+      name: file.name, // for actionable not-a-PDF errors
     });
     return { text, ocr: method === "ocr" };
   }
@@ -50,6 +51,7 @@ export async function analyze(paperFiles, { onProgress, slideFiles, assignmentFi
     let text = "";
     let usedOcr = false;
     let failed = false;
+    let failDetail = null;
     try {
       for (const file of pages) {
         const { text: t, ocr } = await readPage(file, onProgress, aiScan);
@@ -58,6 +60,7 @@ export async function analyze(paperFiles, { onProgress, slideFiles, assignmentFi
       }
     } catch (e) {
       failed = true;
+      failDetail = e.message;
       onProgress?.({ stage: "paper-skipped", paper: name, reason: e.message });
     }
 
@@ -66,7 +69,7 @@ export async function analyze(paperFiles, { onProgress, slideFiles, assignmentFi
     papers.push({ pages: pages.length, ...meta, name, method: failed ? "failed" : usedOcr ? "ocr" : "text", count: questions.length });
     // pIdx (paper index) = which uploaded paper a question came from.
     for (const q of questions) items.push({ ...q, paperId, year: meta.year, pIdx: i });
-    if (failed || questions.length === 0) skipped.push({ name, reason: failed ? "unreadable" : "no-questions" });
+    if (failed || questions.length === 0) skipped.push({ name, reason: failed ? "unreadable" : "no-questions", detail: failDetail });
     // Papers that come WITH solutions are analysed normally and silently — the
     // model answers are stripped to question stems (parsePaper.cleanText), so a
     // solution-bearing PYQ just works; we never warn or block on it.
@@ -104,6 +107,11 @@ export async function analyze(paperFiles, { onProgress, slideFiles, assignmentFi
   // back to re-upload a clearer copy rather than silently dropping it. Better an
   // honest "couldn't read X" than a result that's quietly missing a paper.
   if (skipped.length > 0) {
+    // A not-a-PDF upload (e.g. a portal's HTML page saved as .pdf) carries its
+    // own actionable message — surface that instead of the generic blurry-scan
+    // advice, which would mislead ("re-scan" can't fix a corrupt download).
+    const notPdf = skipped.find((s) => s.detail && /isn't a re(al|adable) PDF/i.test(s.detail));
+    if (notPdf) throw new Error(notPdf.detail);
     const names = skipped.map((s) => s.name).join(", ");
     const one = skipped.length === 1;
     // If the sharper AI scan wasn't available (not signed in), point them to it.

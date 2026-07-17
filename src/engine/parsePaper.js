@@ -17,6 +17,7 @@ const NOISE = [
   /^Time\s*:/i,
   /^Full\s*Marks?\s*:/i,
   /^Answer\s+(any|all|the)\b/i,
+  /answer\s+to\s+each\s+question\s+carries/i, // marks-note ("Appropriate answer to each question carries 1 mark")
   /Question\s+paper\s+consists/i,
   /^A[t]+empt\b/i,
   /figures\s+in\s+the\s+margin/i,
@@ -199,7 +200,14 @@ function detectPartStyle(lines) {
 const isHeader = (t) => /^(short|long|very\s+short|objective|descriptive)\s+(answer\s+)?(type\s+)?questions?\b/i.test(t);
 // A compulsory-Q1 lead-in directive ("Write short answers or do as directed")
 // whose real content is the a)/b)/c) parts that follow — drop the stem itself.
-const isDirective = (t) => /^(write\s+short\s+answers?\b|do\s+as\s+directed\b)/i.test(t);
+// Likewise a CONTENT-FREE "Write short notes on any two (of the following)"
+// stem — its actual note topics parse as their own sub-questions, so the bare
+// stem is a meaningless stub that would rank as a fake "General" repeat. A
+// short-notes stem WITH its topics inline ("…: Outer join, …") is kept whole.
+// (Leading \W* tolerates OCR junk like a stray curly quote: "'Write short…".)
+const isDirective = (t) =>
+  /^\W*(write\s+short\s+answers?\b|do\s+as\s+directed\b)/i.test(t) ||
+  /^\W*write\s+(a\s+)?(short\s+)?notes?\s*(on|about)?\s*(any\s+(one|two|three|four|\d+))?\s*((of|among)\s+the\s+following?s?)?\s*[.:]?$/i.test(t);
 
 // Some papers label questions "Q1." / "Q2)" (COA 2020 etc.), and OCR usually
 // reads the "1" as l / I / i / |. Normalise a leading "Q<n>" label to a bare
@@ -218,6 +226,7 @@ export function splitQuestions(text) {
   let curNum = null;
   let lastPart = null; // last part letter seen under curNum
   let lastTopNum = 0;  // highest top-level number seen, for inferring a garbled one
+  let rejectRun = null; // tail number of a rejected numbered-LIST run (see Q_NUM guard)
   // A question STEM whose number OCR mangled — "74 Answer all the questions…",
   // "Ql. Answer the following…" — where Q_NUM can't see a clean number. We catch
   // it by the leading number-ish token ("74", "Ql", "l)") + the "Answer all / the
@@ -259,10 +268,30 @@ export function splitQuestions(text) {
   };
 
   for (const l of trimmed) {
-    if (!l || isNoise(l)) continue;
+    if (!l) continue;
+    // "SECTION-B" style headers may legitimately restart question numbering —
+    // reset the monotonic counter so the backward-number guard below doesn't
+    // swallow a renumbered section. (The header line itself is noise-skipped.)
+    if (/^SECTION\s*-?\s*[A-Z]\b/i.test(l)) { lastTopNum = 0; rejectRun = null; }
+    if (isNoise(l)) continue;
 
     let m = Q_NUM.exec(l);
     if (m) {
+      // Numbered LIST lines inside a question or a model answer masquerade as
+      // question starts — "1. Process ID …" in a PCB answer, "4. Encouraging
+      // technological innovation" in an economics answer, "33.33%" OCR'd as a
+      // number. Three tells, all for PART-LESS numbers while a unit is open:
+      // the number goes backward/repeats (KIIT numbering only advances); it
+      // sequentially continues a run we already rejected (a list marching past
+      // the real question number); or it jumps absurdly. A number WITH a part
+      // marker ("2.(a)") is always a real question and clears the run.
+      const n = Number(m[1]) || 0;
+      if (!m[2] && cur) {
+        if (rejectRun !== null && n === rejectRun + 1) { rejectRun = n; cur.text += " " + l; continue; }
+        if (lastTopNum > 0 && n <= lastTopNum) { rejectRun = n; cur.text += " " + l; continue; }
+        if (lastTopNum > 0 && n > lastTopNum + 3) { cur.text += " " + l; continue; }
+      }
+      rejectRun = null;
       flush();
       curNum = m[1];
       lastTopNum = Number(curNum) || lastTopNum;
@@ -340,7 +369,7 @@ export function splitQuestions(text) {
 export function assessSolutionSheet(text, questionCount = 0) {
   const t = text || "";
   // An explicit answer-key header is conclusive on its own.
-  const explicit = /\b(marking\s+scheme|model\s+answers?|answer\s+key|scheme\s+of\s+(?:valuation|evaluation)|solution\s+sheet)\b/i.test(t);
+  const explicit = /\b(marking\s+scheme|model\s+answers?|answer\s+key|answer\s+scheme|scheme\s+of\s+(?:valuation|evaluation)|solution\s+sheet)\b/i.test(t);
   // Per-question model-answer lead-ins: "Solution –", "Ans:", "Answer -",
   // "Soln.". This is the same separator cleanText strips, so counting it
   // estimates how many questions carry a written answer. The separator char
