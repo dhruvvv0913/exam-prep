@@ -7,6 +7,7 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { assessText } from "./textQuality.js";
 import { splitQuestions } from "./parsePaper.js";
 import { ocrDocument, renderPageImages } from "./ocr.js";
+import { sniffPdf, notPdfMessage } from "./pdfSniff.js";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -58,7 +59,14 @@ async function readTextLayer(doc) {
 const CLEAN_RATIO = 0.15;   // low end of clean born-digital prose (0.15–0.35)
 const MIN_QUESTIONS = 5;    // a real paper parses to at least a handful of units
 
-export async function extractText(data, { onOcrProgress, aiScan, onAiScan } = {}) {
+export async function extractText(data, { onOcrProgress, aiScan, onAiScan, name } = {}) {
+  // Catch not-actually-a-PDF uploads (e.g. a portal's HTML login page saved as
+  // .pdf — a real failure mode on the campus network) BEFORE pdf.js throws its
+  // opaque "Invalid PDF structure.", so the user gets an actionable message.
+  // A PDF with junk bytes prepended is recovered by slicing to the real header.
+  const sniff = sniffPdf(data);
+  if (sniff.kind !== "pdf") throw new Error(notPdfMessage(sniff.kind, name));
+  if (sniff.offset > 0) data = (data instanceof Uint8Array ? data : new Uint8Array(data)).subarray(sniff.offset);
   const doc = await pdfjs.getDocument({ data, useSystemFonts: true }).promise;
   const text = await readTextLayer(doc);
   const tlA = assessText(text);

@@ -112,6 +112,12 @@ export function extractTopics(slides, { maxTopics = 300 } = {}) {
 export function deckLabel(name = "") {
   const stem = String(name).replace(/^.*[\\/]/, "").replace(/\.[a-z0-9]+$/i, "");
   let s = stem
+    // URL-encoded download names that lost their "%" ("14_20Cache_20Memory_202024"
+    // is "14%20Cache%20Memory%202024"): decode "_20" to a space when it precedes
+    // a capitalised word or a year, so the label reads "Cache Memory", not
+    // "20Cache 20Memory 202024". Plain "Lecture_2023" style names are untouched.
+    .replace(/_20(?=[A-Z])/g, " ")
+    .replace(/_20(?=(?:19|20)\d{2}(?:\b|$))/g, " ")
     .replace(/\((\d+)\)/g, " ")             // "(1)" duplicate marker
     .replace(/^\s*\d+[\s._)-]*/, "")        // leading index "8 ", "8."
     .replace(/_/g, " ")

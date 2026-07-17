@@ -56,3 +56,10 @@ test("extractDeckTopics tags each title with its deck label", () => {
   assert.ok(i >= 0);
   assert.equal(deckOf[i], "Cache Memory");
 });
+
+test("deckLabel decodes lost-percent URL-encoded names (%20 -> _20)", async () => {
+  const { deckLabel } = await import("../src/engine/slides.js");
+  assert.equal(deckLabel("14_20Cache_20Memory_202024.pdf"), "Cache Memory");
+  assert.equal(deckLabel("4_20COA_20Performance.pdf"), "Performance");
+  assert.equal(deckLabel("Lecture_2023.pdf"), "Lecture"); // plain underscore-year untouched
+});
