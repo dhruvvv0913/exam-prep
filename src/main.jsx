@@ -19,3 +19,16 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     navigator.serviceWorker.register('/sw.js').catch(() => {})
   })
 }
+
+// Google AdSense — opt-in network probe (see CLAUDE.md "Ads experiment").
+// Inert unless VITE_ADSENSE_CLIENT is set; loads Google's real ad script from
+// their CDN so we can observe whether the campus wifi proxy intercepts it,
+// the same class of problem that forced the ML models to be self-hosted.
+const adsenseClient = import.meta.env.VITE_ADSENSE_CLIENT
+if (adsenseClient) {
+  const s = document.createElement('script')
+  s.async = true
+  s.crossOrigin = 'anonymous'
+  s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`
+  document.head.appendChild(s)
+}
