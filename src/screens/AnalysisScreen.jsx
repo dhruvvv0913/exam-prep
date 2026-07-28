@@ -5,7 +5,7 @@
 import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconStar, IconCheck, IconChevron, IconLayers, IconUpload, IconClose, IconFile, IconPlus, IconSparkle } from "../components/icons.jsx";
-import { Tag, HeatBar, GhostButton, PrimaryButton, CountUp } from "../components/atoms.jsx";
+import { Tag, HeatBar, GhostButton, PrimaryButton, CountUp, Reveal, TiltCard } from "../components/atoms.jsx";
 import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { useDismissable } from "../useDismissable.js";
@@ -200,13 +200,15 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
   const isMobile = useIsMobile();
   const [shownImg, setShownImg] = React.useState(() => new Set());
   const toggleImg = (i) => setShownImg((prev) => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; });
-  const delay = Math.min((rank || 0) * 0.035, 0.45);
+  const delay = Math.min((rank || 0) * 0.02, 0.24);
   const lit = flash === `topic-${cluster.id}`;
   return (
+    <Reveal delay={delay}>
+    <TiltCard max={0}>
     <div id={`topic-${cluster.id}`}
       onMouseEnter={(e) => { if (!lit) { e.currentTarget.style.boxShadow = C.shadowMd; e.currentTarget.style.transform = "translateY(-2px)"; } }}
       onMouseLeave={(e) => { if (!lit) { e.currentTarget.style.boxShadow = C.shadowSm; e.currentTarget.style.transform = "none"; } }}
-      style={{ position: "relative", background: C.card, borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s, transform .2s ease", animation: "rise .4s ease backwards", animationDelay: `${delay}s`, scrollMarginTop: 12 }}>
+      style={{ position: "relative", background: C.card, borderRadius: 16, border: `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, borderLeft: done ? `4px solid ${C.good}` : `1px solid ${lit ? hexA(C.primary, 0.6) : C.line}`, boxShadow: lit ? `0 0 0 3px ${hexA(C.primary, 0.25)}` : C.shadowSm, overflow: "hidden", opacity: done ? 0.6 : 1, transition: "opacity .2s, box-shadow .2s, border-color .2s, transform .2s ease", scrollMarginTop: 12 }}>
       {/* the top result gets a gradient hairline to stand out */}
       {rank === 1 && !unique && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: C.grad }} />}
       {/* header (click / Enter / Space to collapse/expand) */}
@@ -272,7 +274,9 @@ function GroupCard({ rank, cluster, max, collapsed, onToggle, starred, done, onS
           ))}
         </div>
       )}
-    </div>);
+    </div>
+    </TiltCard>
+    </Reveal>);
 }
 
 // ---- one PPT section: a slide deck's header + the question-types under it ----
@@ -284,7 +288,8 @@ function PptSection({ deck, children, flash }) {
   const off = deck.deck === NOT_ON_SLIDES;
   const lit = flash === deckSlug(deck.deck);
   return (
-    <div id={deckSlug(deck.deck)} style={{ scrollMarginTop: 12, animation: "rise .4s ease backwards" }}>
+    <Reveal>
+    <div id={deckSlug(deck.deck)} style={{ scrollMarginTop: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 6px 12px", borderRadius: 12, transition: "background .3s", background: lit ? hexA(C.primary, 0.07) : "transparent" }}>
         <div style={{ width: 34, height: 34, flex: "0 0 auto", borderRadius: 10, background: off ? C.card2 : C.primarySoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <IconLayers s={17} c={off ? C.faint : C.primary} />
@@ -301,7 +306,8 @@ function PptSection({ deck, children, flash }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginLeft: isMobile ? 0 : 17, paddingLeft: isMobile ? 0 : 16, borderLeft: isMobile ? "none" : `2px solid ${C.lineSoft}` }}>
         {children}
       </div>
-    </div>);
+    </div>
+    </Reveal>);
 }
 
 // Segmented control: importance-grouping vs PPT-grouping.

@@ -4,7 +4,7 @@
 import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconArrow, IconUpload, IconLayers, IconLock, IconClose } from "../components/icons.jsx";
-import { Tag, PrimaryButton, GhostButton, FloatField } from "../components/atoms.jsx";
+import { Tag, PrimaryButton, GhostButton, FloatField, Reveal, TiltCard } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import { useDismissable } from "../useDismissable.js";
 import { useAuth } from "../auth.jsx";
@@ -13,36 +13,39 @@ import { listSubjects, myEntitlements, listMySubjects, deleteMySubject } from ".
 function SubjectCard({ s, locked, onClick, index = 0, onDelete }) {
   const [hover, setHover] = React.useState(false);
   return (
-    <div onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{
-        background: C.card, border: `1px solid ${hover ? hexA(C.primary, 0.5) : C.line}`, borderRadius: 16,
-        padding: 20, cursor: "pointer", boxShadow: hover ? "0 8px 24px rgba(63,81,196,0.14)" : C.shadowSm,
-        transition: "border-color .15s, box-shadow .15s, transform .15s", transform: hover ? "translateY(-2px)" : "none",
-        display: "flex", flexDirection: "column", gap: 12, minWidth: 0, opacity: locked ? 0.92 : 1,
-        animation: "rise .45s ease backwards", animationDelay: `${Math.min(index * 0.05, 0.4)}s`,
-      }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink, lineHeight: 1.3, textWrap: "pretty" }}>{s.subject}</div>
-          {s.code && <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, marginTop: 2 }}>{s.code}</div>}
+    <Reveal delay={Math.min(index * 0.04, 0.3)}>
+      <TiltCard max={4} tint={locked ? C.muted : C.primary}>
+        <div onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+          style={{
+            background: C.card, border: `1px solid ${hover ? hexA(C.primary, 0.5) : C.line}`, borderRadius: 16,
+            padding: 20, cursor: "pointer", boxShadow: hover ? "0 8px 24px rgba(63,81,196,0.14)" : C.shadowSm,
+            transition: "border-color .15s, box-shadow .15s, transform .15s", transform: hover ? "translateY(-2px)" : "none",
+            display: "flex", flexDirection: "column", gap: 12, minWidth: 0, opacity: locked ? 0.92 : 1,
+          }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: C.font, fontWeight: 600, fontSize: 17, color: C.ink, lineHeight: 1.3, textWrap: "pretty" }}>{s.subject}</div>
+              {s.code && <div style={{ fontFamily: C.font, fontSize: 12.5, color: C.faint, marginTop: 2 }}>{s.code}</div>}
+            </div>
+            <div style={{ width: 38, height: 38, flex: "0 0 auto", borderRadius: 11, background: locked ? C.card2 : C.grad, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: locked ? "none" : C.gradGlow }}>
+              {locked ? <IconLock s={18} c={C.muted} /> : <IconLayers s={18} c="#fff" />}
+            </div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+            <Tag>{s.paper_count} papers</Tag>
+            <Tag>{s.question_count} questions</Tag>
+            <Tag tone="primary">{s.topic_count} topics</Tag>
+            {s.is_free && <Tag tone="good">Free</Tag>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: 2 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.font, fontSize: 13.5, fontWeight: 600, color: locked ? C.muted : C.primary }}>
+              {locked ? <React.Fragment><IconLock s={14} c={C.muted} /> Locked</React.Fragment> : <React.Fragment>Open <IconArrow s={16} /></React.Fragment>}
+            </span>
+            {onDelete && <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Remove from My Library" style={{ background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex", flex: "0 0 auto" }}><IconClose s={15} c={C.faint} /></button>}
+          </div>
         </div>
-        <div style={{ width: 38, height: 38, flex: "0 0 auto", borderRadius: 11, background: locked ? C.card2 : C.grad, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: locked ? "none" : C.gradGlow }}>
-          {locked ? <IconLock s={18} c={C.muted} /> : <IconLayers s={18} c="#fff" />}
-        </div>
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-        <Tag>{s.paper_count} papers</Tag>
-        <Tag>{s.question_count} questions</Tag>
-        <Tag tone="primary">{s.topic_count} topics</Tag>
-        {s.is_free && <Tag tone="good">Free</Tag>}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: 2 }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: C.font, fontSize: 13.5, fontWeight: 600, color: locked ? C.muted : C.primary }}>
-          {locked ? <React.Fragment><IconLock s={14} c={C.muted} /> Locked</React.Fragment> : <React.Fragment>Open <IconArrow s={16} /></React.Fragment>}
-        </span>
-        {onDelete && <button onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Remove from My Library" style={{ background: "none", border: "none", padding: 4, cursor: "pointer", display: "flex", flex: "0 0 auto" }}><IconClose s={15} c={C.faint} /></button>}
-      </div>
-    </div>);
+      </TiltCard>
+    </Reveal>);
 }
 
 // Paywall shown when a locked subject is clicked.

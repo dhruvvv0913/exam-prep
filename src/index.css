@@ -27,6 +27,8 @@ button:focus:not(:focus-visible), [role="button"]:focus:not(:focus-visible) { ou
 
 /* gentle entrance for cards */
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+/* cross-fade when the app swaps to a different screen */
+@keyframes screenIn { from { opacity: 0; transform: translateY(8px) scale(0.994); } to { opacity: 1; transform: none; } }
 
 /* feature-tour (loading-screen tutorial) animations */
 @keyframes growx { from { transform: scaleX(0); } to { transform: scaleX(1); } }
@@ -39,7 +41,28 @@ button:focus:not(:focus-visible), [role="button"]:focus:not(:focus-visible) { ou
 /* buttons get a smooth feel by default */
 button { transition: transform .14s ease, box-shadow .2s ease, background .2s ease, filter .2s ease, border-color .2s ease; }
 
+/* diagonal light sweep across a button/CTA on hover */
+@keyframes shine { from { transform: translateX(-60%) rotate(8deg); } to { transform: translateX(160%) rotate(8deg); } }
+/* slow-rotating conic ring behind the hero (extra depth layer) */
+@keyframes ringspin { to { transform: rotate(360deg); } }
+/* pulse used by the cursor spotlight so it feels alive even when idle */
+@keyframes driftglow { 0%,100% { opacity: 0.55; } 50% { opacity: 0.85; } }
+
+/* scroll-triggered reveal (see useReveal.js): starts hidden, animates in once
+   IntersectionObserver flags it visible. transform/opacity only -> cheap. */
+.pyq-reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1); }
+.pyq-reveal.in { opacity: 1; transform: none; }
+
+/* cursor-tracked glare for TiltCard/GlowCard: a child positioned at inset:0
+   with a radial-gradient centered on --mx/--my, only shown while hovered. */
+.pyq-tilt { transition: transform .35s cubic-bezier(.16,1,.3,1); }
+.pyq-tilt .pyq-glare { opacity: 0; transition: opacity .35s ease; }
+.pyq-tilt:hover .pyq-glare { opacity: 1; }
+.pyq-tilt .pyq-edge { opacity: 0; transition: opacity .35s ease; }
+.pyq-tilt:hover .pyq-edge { opacity: 1; }
+
 /* respect users who prefer less motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  .pyq-reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 }

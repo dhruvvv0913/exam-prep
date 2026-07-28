@@ -12,7 +12,7 @@ npm test         # engine unit tests (Node's built-in runner, tests/*.test.mjs)
 node --test tests/parsePaper.test.mjs   # run a single test file
 ```
 
-`npm test` covers the pure engine modules (parsePaper, textQuality, rank, slides, clusterCore, cropCore, aiPrompt, mergeContent) with zero extra dependencies. No linter is configured. The browser-only modules (extractText, ocr, cluster's embedder, cropQuestion) aren't unit-tested — they're exercised by the `scripts/` harnesses against real PDFs.
+`npm test` covers the pure engine modules (parsePaper, textQuality, rank, slides, clusterCore, cropCore, aiPrompt, mergeContent, pdfSniff) with zero extra dependencies. No linter is configured. The browser-only modules (extractText, ocr, cluster's embedder, cropQuestion) aren't unit-tested — they're exercised by the `scripts/` harnesses against real PDFs.
 
 ### Engine dev scripts (Node)
 
@@ -118,20 +118,35 @@ Anonymous self-upload uses the free in-browser grouping; **signed-in** users get
 
 Static **Vercel** deploy, auto-deploys on push to `main`. Use the stable production alias — **https://exam-prep-dhruvvv9146.vercel.app** — not the per-deploy hash URLs (the Google OAuth redirect is registered for the alias). Newly published library subjects appear immediately (read from Supabase) without a redeploy.
 
+### Ads experiment (opt-in, off by default)
+
+Monetization idea being tested: ads instead of a payment gate, since payment friction discourages students. [main.jsx](src/main.jsx) loads the real Google AdSense script (`pagead2.googlesyndication.com`) only when `VITE_ADSENSE_CLIENT` is set — unset (the default) means zero behavior change and no external request. This is a deliberate, narrow exception to the engine's "no external CDN calls" rule (see Analysis engine above): the whole point of self-hosting the ML models was that the campus wifi's proxy intercepts CDN requests and returns HTML instead of the real asset, and the open question is whether it does the same thing to Google's ad-serving domain. No ad *unit*/slot is wired up yet (that needs a configured slot ID from the AdSense dashboard, not just a publisher ID) — this first step only tests reachability of the script itself. If the network blocks it, the failure is inert (no ad shown, no crash) since it isn't on the app's critical path.
+
 ### Styling
 
-All layout and visual styling uses **inline styles** — there is no CSS-in-JS library and no component-level stylesheet. All color, shadow, font, and spacing values come from the design token object `C` exported by `src/theme.js`. The helper `hexA(hex, alpha)` converts a hex color to `rgba` for transparency variants.
+All layout and visual styling uses **inline styles** — there is no CSS-in-JS library and no component-level stylesheet. All color, shadow, font, and spacing values come from the design token object `C` exported by `src/theme.js`. The helper `hexA(hex, alpha)` converts a hex color to `rgba` for transparency variants. `src/index.css` holds the few things inline styles can't express — `@keyframes`, `:focus-visible`/`:hover` rules, and the `prefers-reduced-motion` override — kept intentionally small (global resets, animation keyframes, a handful of `.pyq-*` utility classes for effects that need a real hover selector, e.g. `.pyq-tilt:hover .pyq-glare`).
 
-Do not introduce a CSS file or external styling library; keep new styles inline using tokens from `C`.
+Do not introduce a CSS file or external styling library; keep new styles inline using tokens from `C`, reserving `index.css` for the keyframes/pseudo-class cases above.
 
 ### Component structure
 
-- `src/components/atoms.jsx` — shared primitives: `Logo`, `Tag`, `HeatBar`, `PrimaryButton`, `GhostButton`, `FloatField` (animated decorative background)
+- `src/components/atoms.jsx` — shared primitives: `Logo`, `Tag`, `HeatBar`, `PrimaryButton` (`glow`/`shine` props for extra emphasis on a hero CTA), `GhostButton`, `CountUp` (tweened number), `FloatField` (drifting decorative shapes), and the cursor/scroll effects below.
 - `src/components/icons.jsx` — inline SVG icon components
 - `src/useIsMobile.js` — `useIsMobile(maxWidth?)` hook wrapping `matchMedia`, used throughout screens to switch a handful of padding/font-size values for mobile
+- `src/useReveal.js` — `useReveal()` hook backing `<Reveal>`: one-shot `IntersectionObserver` that adds the `in` class (see `.pyq-reveal` in index.css) the first time an element scrolls into view; a no-op flash-to-visible under `prefers-reduced-motion` or without `IntersectionObserver`.
+
+### Cursor/scroll motion primitives (atoms.jsx)
+
+Added for the hero + card polish pass; all are opt-in wrappers, GPU-only (`transform`/`opacity`), and respect `prefers-reduced-motion`:
+
+- **`Spotlight`** — wraps hero content with a radial glow that follows the pointer, positioned via a CSS custom property (`--sx`/`--sy`) set directly on the ref (no re-render per `mousemove`). Used around the landing hero.
+- **`TiltCard`** — cursor-reactive card: a subtle 3D tilt (`max` degrees; pass `max={0}` to disable rotation and keep just the effects below) plus a pointer-following glare and a glowing border ring (an inset-masked radial gradient, `.pyq-edge` in index.css). Also driven by direct ref mutation, not state. Used at `max>0` on the landing upload dropzones and library `SubjectCard`s (a little tilt reads well on discrete cards); at `max={0}` on `AnalysisScreen`'s `GroupCard` (glow only — a dense list of question text doesn't want to rotate).
+- **`Reveal`** — scroll-triggered fade/rise-in (`useReveal` + the `.pyq-reveal` class), replacing the old mount-time "animate everything with a capped stagger" approach on `SubjectCard`/`GroupCard`/`PptSection` — cards off-screen at load no longer animate before the user scrolls to them.
+- **`Grain`** — a fixed, whole-viewport SVG-noise overlay (self-contained data URI — no network request) at very low opacity/`mix-blend-mode: overlay`, mounted once in `App`. Purely a "tactile" texture layer; not interactive.
+- `AuroraBg` (in `App`) additionally does a cheap window-level `mousemove` → `requestAnimationFrame` parallax: each drifting blob sits in an outer wrapper whose `transform` is a `--px`/`--py`-driven `translate3d` (the blob's own drift keyframe lives on an INNER div, so the two transforms compose instead of fighting over the same property), plus a slow-rotating conic-gradient ring layer for extra depth.
 
 ### Key patterns
 
 - `done`/`starred` progress is owned by `App` (as `Set`s, persisted per progress bucket) and passed into `AnalysisScreen`; toggling clones the Set via a `toggleIn(setter)(id)` helper.
 - `AnalysisScreen` renders groups as collapsible `GroupCard`s (topic header + question list); ranking and labels come from `summarize()`. The admin-only `PublishModal` saves the current groups as a library subject.
-- Background visuals are decorative only: `AuroraBg` (in `App`) and `FloatField` (atoms) sit behind content at a lower `zIndex`.
+- Background visuals are decorative only: `AuroraBg` (in `App`) and `FloatField` (atoms) sit behind content at a lower `zIndex`; `Grain` sits above them at low opacity. `App` also keys its screen content on `screen` with a `screenIn` fade/rise (index.css) so switching screens cross-fades instead of an instant cut.

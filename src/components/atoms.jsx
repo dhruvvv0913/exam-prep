@@ -1,6 +1,7 @@
 // Shared UI atoms for PYQ-LY. Ported verbatim from prototype-ui.jsx.
 import React from "react";
 import { C, hexA } from "../theme.js";
+import { useReveal } from "../useReveal.js";
 
 // Animated number: tweens to `to` (from 0 on first mount, then between changes)
 // with an easeOutCubic. Used for headline stats / progress so they feel alive.
@@ -58,12 +59,13 @@ export function HeatBar({ value, max, w = 64 }) {
     </div>);
 }
 
-export function PrimaryButton({ children, onClick, disabled, glow, w, size = "md" }) {
+export function PrimaryButton({ children, onClick, disabled, glow, shine, w, size = "md" }) {
   const pad = size === "lg" ? "15px 32px" : "12px 26px";
   const fs = size === "lg" ? 17 : 15;
   return (
     <button onClick={disabled ? undefined : onClick} disabled={disabled}
       style={{
+        position: "relative", overflow: shine && !disabled ? "hidden" : "visible",
         fontFamily: C.font, fontSize: fs, fontWeight: 600, padding: pad, width: w || "auto",
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9,
         color: "#fff", background: disabled ? C.line2 : C.grad, border: "none",
@@ -76,6 +78,9 @@ export function PrimaryButton({ children, onClick, disabled, glow, w, size = "md
       onMouseDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.97)"; }}
       onMouseUp={(e) => { if (!disabled) e.currentTarget.style.transform = "translateY(-1px)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.filter = "none"; }}>
+      {shine && !disabled && (
+        <span aria-hidden style={{ position: "absolute", top: "-40%", bottom: "-40%", left: 0, width: "34%", background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)", animation: "shine 2.6s ease-in-out infinite", animationDelay: "1s", pointerEvents: "none" }} />
+      )}
       {children}
     </button>);
 }
@@ -90,6 +95,90 @@ export function GhostButton({ children, onClick }) {
         color: C.ink2, background: C.card, border: `1px solid ${C.line}`, borderRadius: 11,
         cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, boxShadow: C.shadowSm,
       }}>{children}</button>);
+}
+
+// Scroll-triggered entrance: fades/rises `children` in once they cross into
+// view (see useReveal.js + .pyq-reveal in index.css), instead of animating
+// everything at mount whether or not it's on screen yet.
+export function Reveal({ children, delay = 0, style }) {
+  const ref = useReveal();
+  return <div ref={ref} className="pyq-reveal" style={{ transitionDelay: `${delay}s`, ...style }}>{children}</div>;
+}
+
+// Cursor-following ambient glow behind `children` — for hero sections. Tracks
+// the pointer via a CSS custom property (no re-render), so it's cheap even
+// with a large hero. Falls back to a fixed, centered glow with no listener
+// cost until the user actually moves the mouse over it.
+export function Spotlight({ children, tint = C.primary, size = 620, style }) {
+  const ref = React.useRef(null);
+  const onMove = (e) => {
+    const el = ref.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--sx", `${e.clientX - r.left}px`);
+    el.style.setProperty("--sy", `${e.clientY - r.top}px`);
+  };
+  return (
+    <div ref={ref} onMouseMove={onMove} style={{ position: "relative", ...style }}>
+      <div aria-hidden style={{
+        position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none", borderRadius: "inherit",
+        background: `radial-gradient(${size}px circle at var(--sx,50%) var(--sy,-40px), ${hexA(tint, 0.14)}, transparent 62%)`,
+      }} />
+      <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
+    </div>);
+}
+
+// Cursor-reactive card: a subtle 3D tilt (set `max={0}` to disable rotation
+// and keep just the glare/edge-glow) plus a glare highlight and a glowing
+// border ring that both follow the pointer — all driven by direct style
+// mutation on the ref (no re-render per mousemove) and CSS classes in
+// index.css (.pyq-tilt / .pyq-glare / .pyq-edge) so the reveal is a plain
+// :hover transition, not JS-timed.
+export function TiltCard({ children, style, max = 6, tint = C.primary, className = "" }) {
+  const ref = React.useRef(null);
+  const reduce = React.useRef(false);
+  React.useEffect(() => {
+    reduce.current = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+  const onMove = (e) => {
+    const el = ref.current; if (!el || reduce.current) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    if (max > 0) {
+      const rx = ((0.5 - py) * max * 2).toFixed(2), ry = ((px - 0.5) * max * 2).toFixed(2);
+      el.style.transform = `perspective(800px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+    }
+    el.style.setProperty("--mx", `${(px * 100).toFixed(1)}%`);
+    el.style.setProperty("--my", `${(py * 100).toFixed(1)}%`);
+  };
+  const onLeave = () => { const el = ref.current; if (el) el.style.transform = ""; };
+  return (
+    <div ref={ref} className={`pyq-tilt ${className}`} onMouseMove={onMove} onMouseLeave={onLeave}
+      style={{ position: "relative", ...style }}>
+      <div aria-hidden className="pyq-glare" style={{ position: "absolute", inset: 0, zIndex: 2, borderRadius: "inherit", pointerEvents: "none", background: `radial-gradient(240px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,0.09), transparent 60%)` }} />
+      <div aria-hidden className="pyq-edge" style={{
+        position: "absolute", inset: 0, zIndex: 2, borderRadius: "inherit", padding: 1, pointerEvents: "none",
+        background: `radial-gradient(280px circle at var(--mx,50%) var(--my,50%), ${hexA(tint, 0.7)}, transparent 62%)`,
+        WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)", WebkitMaskComposite: "xor", maskComposite: "exclude",
+      }} />
+      {children}
+    </div>);
+}
+
+// Barely-there film-grain texture over the whole app — the 2026 "tactile"
+// counterpart to a flat gradient background. Pure SVG data-URI (no network
+// request, no external CDN), so it fits the app's self-hosted-only rule.
+const GRAIN_SVG = "data:image/svg+xml;utf8," + encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'>" +
+  "<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/>" +
+  "<feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0'/></filter>" +
+  "<rect width='100%' height='100%' filter='url(#n)'/></svg>"
+);
+export function Grain() {
+  return (
+    <div aria-hidden style={{
+      position: "fixed", inset: 0, zIndex: 1, pointerEvents: "none",
+      backgroundImage: `url("${GRAIN_SVG}")`, backgroundSize: "140px 140px", opacity: 0.035, mixBlendMode: "overlay",
+    }} />);
 }
 
 // soft drifting background field

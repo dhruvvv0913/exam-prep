@@ -5,7 +5,7 @@
 import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconUpload, IconFile, IconCheck, IconArrow, IconPlus, IconSparkle, IconClose } from "../components/icons.jsx";
-import { Tag, PrimaryButton, FloatField } from "../components/atoms.jsx";
+import { Tag, PrimaryButton, FloatField, Spotlight, TiltCard } from "../components/atoms.jsx";
 import Tip from "../components/Tip.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 
@@ -160,7 +160,11 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, overflowY: "auto" }}>
       <FloatField />
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 880, margin: "0 auto", padding: isMobile ? "34px 20px 48px" : "52px 32px 60px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      {/* Spotlight spans the full width so its glow fades out naturally into
+          the background instead of hitting a hard edge at the narrower
+          content column's boundary. */}
+      <Spotlight style={{ position: "relative", zIndex: 1, width: "100%" }}>
+      <div style={{ maxWidth: 880, margin: "0 auto", padding: isMobile ? "34px 20px 48px" : "52px 32px 60px", display: "flex", flexDirection: "column", alignItems: "center" }}>
         {scanError && (
           <div role="alert" style={{ width: "100%", maxWidth: 580, display: "flex", alignItems: "flex-start", gap: 10, background: C.dangerSoft, border: `1px solid ${C.dangerBorder}`, borderRadius: 12, padding: "12px 14px", marginBottom: 22, animation: "rise .4s both" }}>
             <span style={{ flex: 1, fontFamily: C.font, fontSize: 13.5, color: C.danger, lineHeight: 1.5 }}>{scanError}</span>
@@ -189,11 +193,11 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
         </Tip>
 
         <div style={{ display: "flex", gap: 20, width: "100%", marginBottom: 30, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <PapersZone papers={papers} setPapers={setPapers} />
-          <MaterialsZone items={handouts} onAdd={addHandouts} onRemove={removeHandout} onSetKind={setHandoutKind} />
+          <TiltCard max={4} style={{ flex: 1, minWidth: 280 }}><PapersZone papers={papers} setPapers={setPapers} /></TiltCard>
+          <TiltCard max={4} tint={C.good} style={{ flex: 1, minWidth: 280 }}><MaterialsZone items={handouts} onAdd={addHandouts} onRemove={removeHandout} onSetKind={setHandoutKind} /></TiltCard>
         </div>
 
-        <PrimaryButton size="lg" disabled={!ready} glow={ready} onClick={onStart}>
+        <PrimaryButton size="lg" disabled={!ready} glow={ready} shine={ready} onClick={onStart}>
           Start learning <IconArrow s={19} />
         </PrimaryButton>
         <div style={{ fontFamily: C.font, fontSize: 13, color: C.faint, marginTop: 14, minHeight: 18 }}>
@@ -220,5 +224,6 @@ export default function LandingScreen({ papers, handouts, setPapers, setHandouts
           </button>
         )}
       </div>
+      </Spotlight>
     </div>);
 }

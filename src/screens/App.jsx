@@ -4,7 +4,7 @@
 import React from "react";
 import { C, hexA } from "../theme.js";
 import { IconUpload, IconLayers, IconArrow } from "../components/icons.jsx";
-import { Logo, GhostButton } from "../components/atoms.jsx";
+import { Logo, GhostButton, Grain } from "../components/atoms.jsx";
 import { useIsMobile } from "../useIsMobile.js";
 import LandingScreen from "./LandingScreen.jsx"; // eager: first paint
 // The rest are lazy so the heavy analysis engine (transformers, tesseract,
@@ -47,14 +47,37 @@ function Account({ auth }) {
     </div>);
 }
 
-// Slow-drifting colored blobs behind everything (subtle, GPU-friendly).
+// Slow-drifting colored blobs behind everything (subtle, GPU-friendly), plus
+// a gentle cursor-parallax (each blob at its own depth) and a slow-rotating
+// conic ring for extra depth. The drift keyframes (aurora1-3) live on an INNER
+// div per blob so they compose with the OUTER div's parallax translate
+// instead of fighting over the same `transform` property.
 function AuroraBg() {
-  const blob = (s) => <div style={{ position: "absolute", borderRadius: "50%", filter: "blur(64px)", ...s }} />;
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = null;
+    const onMove = (e) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const el = ref.current; if (!el) return;
+        el.style.setProperty("--px", ((e.clientX / window.innerWidth - 0.5) * 2).toFixed(3));
+        el.style.setProperty("--py", ((e.clientY / window.innerHeight - 0.5) * 2).toFixed(3));
+      });
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => { window.removeEventListener("mousemove", onMove); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+  const layer = (depth, s) => ({ position: "absolute", transition: "transform .3s ease-out", transform: `translate3d(calc(var(--px,0) * ${depth}px), calc(var(--py,0) * ${depth}px), 0)`, ...s });
+  const blob = (bg, anim) => <div style={{ position: "absolute", inset: 0, borderRadius: "50%", filter: "blur(64px)", background: bg, animation: anim }} />;
   return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
-      {blob({ width: 480, height: 480, top: -150, left: -100, background: "radial-gradient(circle, rgba(110,123,247,0.26), transparent 70%)", animation: "aurora1 19s ease-in-out infinite" })}
-      {blob({ width: 440, height: 440, top: -80, right: -120, background: "radial-gradient(circle, rgba(167,139,250,0.22), transparent 70%)", animation: "aurora2 23s ease-in-out infinite" })}
-      {blob({ width: 420, height: 420, bottom: -180, left: "32%", background: "radial-gradient(circle, rgba(91,108,240,0.18), transparent 70%)", animation: "aurora3 27s ease-in-out infinite" })}
+    <div ref={ref} style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+      <div style={layer(16, { width: 480, height: 480, top: -150, left: -100 })}>{blob("radial-gradient(circle, rgba(110,123,247,0.26), transparent 70%)", "aurora1 19s ease-in-out infinite")}</div>
+      <div style={layer(-20, { width: 440, height: 440, top: -80, right: -120 })}>{blob("radial-gradient(circle, rgba(167,139,250,0.22), transparent 70%)", "aurora2 23s ease-in-out infinite")}</div>
+      <div style={layer(12, { width: 420, height: 420, bottom: -180, left: "32%" })}>{blob("radial-gradient(circle, rgba(91,108,240,0.18), transparent 70%)", "aurora3 27s ease-in-out infinite")}</div>
+      {/* faint slow-rotating conic ring for extra depth behind the hero */}
+      <div aria-hidden style={{ position: "absolute", top: "50%", left: "50%", width: 920, height: 920, marginLeft: -460, marginTop: -460, opacity: 0.05, filter: "blur(2px)", animation: "ringspin 70s linear infinite", background: "conic-gradient(from 0deg, transparent 0%, rgba(130,141,255,0.55) 16%, transparent 34%, transparent 58%, rgba(167,139,250,0.45) 76%, transparent 96%)" }} />
     </div>);
 }
 
@@ -196,9 +219,12 @@ export default function App() {
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: C.bgMesh, fontFamily: C.font }}>
       <AuroraBg />
+      <Grain />
       <TopBar screen={screen} summary={result} fromLibrary={fromLibrary} auth={auth} onHome={home} onReupload={reupload} onBrowse={browse} onAdmin={openAdmin} />
       <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <React.Suspense fallback={<ScreenFallback />}>
+          {/* key={screen} so switching screens re-triggers the cross-fade instead of an instant cut */}
+          <div key={screen} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", animation: "screenIn .32s cubic-bezier(.16,1,.3,1) both" }}>
           {screen === "landing" && <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} scanError={scanError} onClearError={() => setScanError(null)} />}
           {screen === "library" && <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />}
           {screen === "admin" && (auth.isAdmin ? <AdminScreen onBack={browse} /> : <LibraryScreen onOpen={openSubject} onOpenMine={openMySubject} onUpload={reupload} />)}
@@ -209,6 +235,7 @@ export default function App() {
                 onNotify={setNotice}
                 done={done} starred={starred} onToggleDone={toggleIn(setDone)} onToggleStar={toggleIn(setStarred)} />
             : <LandingScreen papers={papers} handouts={handouts} setPapers={setPapers} setHandouts={setHandouts} onStart={start} onBrowse={browse} auth={auth} useAi={useAi} setUseAi={setUseAi} />)}
+          </div>
         </React.Suspense>
       </div>
       {notice && (
